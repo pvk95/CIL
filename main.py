@@ -1,3 +1,4 @@
+#SegNet architecture: https://arxiv.org/pdf/1511.00561.pdf
 import model
 import numpy as np
 import argparse
@@ -13,19 +14,19 @@ import random
 def getData():
     images = []
     gt = []
-    for i in range(1, 201):
+    for i in range(1, 101):
         if (i <= 9):
             # fileName = 'cells/00{}cell.png'.format(i)
-            fileName_img = 'training/images/satImage_00{}.png'.format(i)
-            fileName_gt = 'training/groundtruth/satImage_00{}.png'.format(i)
+            fileName_img = 'data/training/images/satImage_00{}.png'.format(i)
+            fileName_gt = 'data/training/groundtruth/satImage_00{}.png'.format(i)
         elif (i < 100):
             # fileName = 'cells/0{}cell.png'.format(i)
-            fileName_img = 'training/images/satImage_0{}.png'.format(i)
-            fileName_gt = 'training/groundtruth/satImage_0{}.png'.format(i)
+            fileName_img = 'data/training/images/satImage_0{}.png'.format(i)
+            fileName_gt = 'data/training/groundtruth/satImage_0{}.png'.format(i)
         else:
             # fileName = 'cells/{}cell.png'.format(i)
-            fileName_img = 'training/images/satImage_{}.png'.format(i)
-            fileName_gt = 'training/groundtruth/satImage_{}.png'.format(i)
+            fileName_img = 'data/training/images/satImage_{}.png'.format(i)
+            fileName_gt = 'data/training/groundtruth/satImage_{}.png'.format(i)
         im = plt.imread(fileName_img)
         im_gt = plt.imread(fileName_gt)
         # im = plt.imread(fileName)
@@ -34,6 +35,8 @@ def getData():
 
     images = np.stack(images, axis=0)
     gt = np.stack(gt, axis=0)
+
+    gt = gt[:,:,:,None]
 
     return [images, gt]
 
@@ -54,12 +57,12 @@ if __name__ == '__main__':
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-    im_sz = 32 # Square images
-    n_samples = 100
-    n_channels = 3
-    n_outputs = 1
-    lr = 0.001
-    n_epochs = 10
+    #im_sz = 32 # Square images
+    #n_samples = 100
+    #n_channels = 3
+    #n_outputs = 1
+    #lr = 0.001
+    #n_epochs = 10
 
     n_epochs = args.epochs
     lr = args.lr
@@ -80,13 +83,10 @@ if __name__ == '__main__':
 
 
     [X,y] = getData()
-    #assert X.shape[3] == 3 #RGB Image
-    #assert y.shape[3] == 1 #Binary image
 
-    #X = np.random.normal(size=(n_samples,im_sz,im_sz,n_channels),loc=0,scale=1.0)
-    #y = np.random.normal(size=(n_samples,im_sz,im_sz,n_outputs),loc=0,scale=1.0)
-
+    im_sz = X.shape[1] # Square image
     n_samples = X.shape[0]
+    n_channels = X.shape[3]
 
     if not os.path.isfile('training_data.h5'):
         file_data = h5py.File('training_data.h5','w')
