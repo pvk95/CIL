@@ -23,9 +23,9 @@ class UNet(object):
 
         # lowest layer
         conv1 = keras.layers.Conv2D(
-            self.deepness, 3, activation='relu', padding='same')(inp)
+            2**(6 + self.deepness), 3, activation='relu', padding='same')(inp)
         conv2 = keras.layers.Conv2D(
-            self.deepness, 3, activation='relu', padding='same')(conv1)
+            2**(6 + self.deepness), 3, activation='relu', padding='same')(conv1)
 
         # Upsample and convolutions
         inp = conv2
