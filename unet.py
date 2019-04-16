@@ -4,7 +4,7 @@ import pandas as pd
 
 
 class UNet(object):
-    def __init__(self, input_shape=(400,400, 3), epochs=5, verbose=1, batch_size=64):
+    def __init__(self, input_shape=(400,400, 3), epochs=30, verbose=1, batch_size=4):
         self.input_shape = input_shape
         self.epochs = epochs
         self.verbose = verbose
@@ -68,7 +68,7 @@ class UNet(object):
         return self
     
     def predict(self, X):
-        return self.model.predict(X)
+        return self.model.predict(X, batch_size=self.batch_size)
     
     def get_params(self, deep=True):
         return {
