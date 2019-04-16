@@ -114,8 +114,8 @@ if __name__ == '__main__':
     with open(save_folder + 'hyper_param.pickle','wb') as f:
         pickle.dump(hyper_param,f)
 
-    model = model.SegNet(im_sz = im_sz,n_channels= n_channels,lr = lr,\
-                          n_epochs=n_epochs,batch_sz=batch_sz,save_folder=save_folder)
+#    model = model.SegNet(im_sz = im_sz,n_channels= n_channels,lr = lr,\
+#                          n_epochs=n_epochs,batch_sz=batch_sz,save_folder=save_folder)
     model = unet.UNet()
     if (mode == 1):
         model.train(X_train,y_train,X_valid,y_valid)
