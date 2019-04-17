@@ -1,5 +1,6 @@
 #SegNet architecture: https://arxiv.org/pdf/1511.00561.pdf
 import model
+import unet
 import numpy as np
 import argparse
 import pickle
@@ -113,15 +114,16 @@ if __name__ == '__main__':
     with open(save_folder + 'hyper_param.pickle','wb') as f:
         pickle.dump(hyper_param,f)
 
-    segnet = model.SegNet(im_sz = im_sz,n_channels= n_channels,lr = lr,\
-                          n_epochs=n_epochs,batch_sz=batch_sz,save_folder=save_folder)
+#    model = model.SegNet(im_sz = im_sz,n_channels= n_channels,lr = lr,\
+#                          n_epochs=n_epochs,batch_sz=batch_sz,save_folder=save_folder)
+    model = unet.UNet(deepness=3, epochs=1000)
     if (mode == 1):
-        segnet.train(X_train,y_train,X_valid,y_valid)
-        segnet.predict(X_test=X_valid)
+        model.train(X_train,y_train,X_valid,y_valid)
+        model.predict(X_valid)
     elif (mode == 2):
-        segnet.train(X_train, y_train, X_valid, y_valid)
+        model.train(X_train, y_train, X_valid, y_valid)
     elif (mode ==3):
-        segnet.predict(X_test= X_valid)
+        model.predict(X_valid)
     else:
         print("Unknown behavior!")
         sys.exit(1)
