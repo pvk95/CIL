@@ -1,7 +1,6 @@
 #SegNet architecture: https://arxiv.org/pdf/1511.00561.pdf
 #Unet architecture:
-import model
-import unet
+import models
 import utils
 import numpy as np
 import argparse
@@ -27,8 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('-batch_sz',default=32,type=int,help = 'Batch Size')
     parser.add_argument('-epochs',default=100,type=int,help = 'No. of epochs')
     parser.add_argument('-lr',default=0.001,type=float,help = 'Learning rate')
-    parser.add_argument('-mode',default = 4,type=int,help = 'Training or testing')
-    parser.add_argument('-save_folder',default='SegNet/',help='Where to save model')
+    parser.add_argument('-mode',default = 1,type=int,help = 'Training or testing')
+    parser.add_argument('-save_folder',default='UNet/',help='Where to save model')
     parser.add_argument('-frac_valid', default=0.1, help='Fraction for training data')
     parser.add_argument('-gpu', default=0, help='GPU number',type=int)
     parser.add_argument('-sz_tr', default=200, help='GPU number', type=int)
@@ -97,9 +96,8 @@ if __name__ == '__main__':
     with open(save_folder + 'hyper_param.pickle','wb') as f:
         pickle.dump(hyper_param,f)
 
-#    model = model.SegNet(im_sz = im_sz,n_channels= n_channels,lr = lr,\
-#                          n_epochs=n_epochs,batch_sz=batch_sz,save_folder=save_folder)
-    model = unet.UNet(save_folder,deepness=3, epochs=args.epochs)
+#   model = models.SegNet(save_folder=save_folder,epochs = args.epochs)
+    model = models.UNet(save_folder,deepness=3, epochs=args.epochs)
 
     if (mode == 1):
         model.train(X_train,y_train,X_valid,y_valid)
