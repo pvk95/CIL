@@ -9,6 +9,7 @@ from tensorflow.python.keras.layers import Activation
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import Conv2DTranspose
 import pickle
+import matplotlib.pyplot as plt
 
 class SegNet():
     def __init__(self,im_sz=32,n_channels=3,lr=0.001,n_epochs=100,save_folder='SegNet/',batch_sz=32):
@@ -100,7 +101,7 @@ class SegNet():
 
         tf.keras.models.save_model(model,filepath = fileName)
 
-    def predict(self,X_test):
+    def predict(self,X_test,test_idxs):
         fileName = self.save_folder + 'checkpoint/SegNet.h5'
         if not os.path.isfile(fileName):
             print("Model not found! Exiting ...")
@@ -109,6 +110,13 @@ class SegNet():
         model = tf.keras.models.load_model(fileName)
         y_pred = model.predict(X_test)
         y_pred = (y_pred>=0.5).astype(np.int)
+
+
+        if not os.path.exists(self.save_folder + 'pred_imgs/'):
+            os.makedirs(self.save_folder + 'pred_imgs/')
+
+        for i in range(y_pred.shape[0]):
+            plt.imsave(self.save_folder + 'pred_imgs/img_{}.png'.format(test_idxs[i]))
 
         with h5py.File(self.save_folder + 'predictions.h5','w') as f:
             f['data'] = y_pred

@@ -4,18 +4,18 @@ import sys
 import h5py
 from tensorflow import keras
 import numpy as np
-import pandas as pd
 import pickle
 
 
 class UNet(object):
-    def __init__(self,save_folder,input_shape=(400, 400, 3), epochs=30, verbose=1, batch_size=4, deepness=4):
+    def __init__(self,save_folder,lr=0.001,input_shape=(400, 400, 3), epochs=30, verbose=1, batch_size=4, deepness=4):
         self.input_shape = input_shape
         self.epochs = epochs
         self.verbose = verbose
         self.batch_size = batch_size
         self.deepness = deepness
         self.save_folder = save_folder
+        self.lr = lr
 
     def create_model(self):
         self.input = keras.layers.Input(self.input_shape)
@@ -90,9 +90,7 @@ class UNet(object):
         y_pred = self.model.predict(X, batch_size=self.batch_size)
         y_pred = (y_pred >= 0.5).astype(np.int)
 
-        with h5py.File(self.save_folder + 'predictions.h5', 'w') as f:
-            f['data'] = y_pred
-
+        return y_pred
 
     def get_params(self, deep=True):
         return {
@@ -109,7 +107,7 @@ class UNet(object):
 
     def train(self, X_train, Y_train, X_valid, Y_valid):
         self.model = self.create_model()
-        self.model.compile(optimizer=keras.optimizers.Adam(),
+        self.model.compile(optimizer=keras.optimizers.Adam(lr=self.lr,),
                            loss='binary_crossentropy', metrics=['accuracy'])
         history = self.model.fit(x=X_train, y=Y_train, validation_data=(X_valid, Y_valid),
                        batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
@@ -128,5 +126,7 @@ class UNet(object):
         fileName = self.save_folder + 'checkpoint/UNet.h5'
         tf.keras.models.save_model(self.model,filepath=fileName)
 
-
-
+        y_valid = self.model.predict(X_valid)
+        y_valid = (y_valid>=0.5).astype(np.int)
+        with h5py.File(self.save_folder + 'validation.h5', 'w') as f:
+            f['data'] = y_valid
