@@ -3,3 +3,6 @@ __pycache__
 data
 SegNet
 training_data.h5
+ResUNet
+.idea
+.gitignore
