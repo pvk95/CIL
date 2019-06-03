@@ -1,8 +1,43 @@
 import numpy as np
 import glob
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import os
 import cv2
+
+def patch2img(X,npc_img = 4, stride=200):
+
+    n_patches = X.shape[0]
+    n_samples = n_patches//npc_img
+    n_strides = int(npc_img**1/2)
+
+    X_tr = np.zeros((n_samples,400,400,3))
+    
+    count = 0
+    for samp in range(n_samples):
+        for j in range(n_strides):
+            for i in range(n_strides):
+                X_tr[samp,j*stride:j*stride+stride,i*stride:i*stride+stride,:] = X[count,...]
+                count = count + 1
+    return X_tr
+
+def getPatches(X,stride=200):
+    #X is a square image
+    
+    n_samples = X.shape[0]
+    im_sz = X.shape[1]
+    n_strides = im_sz//stride
+    X_patches = []
+    
+    for samp in range(n_samples):
+        for j in range(n_strides):
+            for i in range(n_strides):
+                im_patch = X[samp,j*stride:j*stride+stride,i*stride:i*stride+stride,:]                
+                X_patches.append(im_patch)
+
+    X_patches = np.stack(X_patches,axis=0)
+
+    return X_patches
 
 def getData():
     images = []
@@ -116,13 +151,18 @@ def data_augment(X, y, total_samples=200):
 
     return [X, y, flip_rot]
 
-def getPredImgs(y_pred,file_names,save_folder):
+def getPredImgs(y_pred,file_names,save_folder):    
+    if len(y_pred.shape)==4:
+        y_pred = y_pred[:,:,:,0]
+    
+    print(y_pred.shape)
+
     if not os.path.exists(save_folder + 'pred_imgs/'):
         os.makedirs(save_folder + 'pred_imgs/')
 
     for i in range(len(file_names)):
         fileName = save_folder + 'pred_imgs/test_img_{}'.format(file_names[i])
-        plt.imsave(fileName,y_pred[i,:,:])
+        plt.imsave(fileName,y_pred[i,:,:],cmap = cm.gray)
 
 def resize_to_tr(X):
     n_samples = X.shape[0]
@@ -131,7 +171,7 @@ def resize_to_tr(X):
     dim = (width,height)
     resize_imgs = []
     for i in range(n_samples):
-        resize_imgs.append(cv2.resize(X[i,:,:,:],dim,interpolation = cv2.INTER_CUBIC))
+        resize_imgs.append(cv2.resize(X[i,...],dim,interpolation = cv2.INTER_CUBIC))
 
     resize_imgs = np.stack(resize_imgs,axis=0)
     return resize_imgs
@@ -143,7 +183,7 @@ def resize_to_test(X):
     dim = (width, height)
     resize_imgs = []
     for i in range(n_samples):
-        temp = cv2.resize(X[i, :, :].astype(np.float), dim, interpolation=cv2.INTER_CUBIC)
+        temp = cv2.resize(X[i,...].astype(np.float), dim, interpolation=cv2.INTER_CUBIC)
         temp = (temp>=0.5).astype(np.int)
         resize_imgs.append(temp)
 
