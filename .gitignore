@@ -1,8 +1,10 @@
 __pycache__
 .vscode
+.gitignore
 data
 SegNet
 training_data.h5
-ResUNet
-.idea
-.gitignore
+.idea/
+ResUNet/
+UNet/
+SegNet/

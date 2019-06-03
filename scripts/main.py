@@ -1,15 +1,13 @@
-#SegNet architecture: https://arxiv.org/pdf/1511.00561.pdf
-import model
-import unet
-import numpy as np
 import argparse
+import os
 import pickle
 import sys
-import os
-import matplotlib.pyplot as plt
+
 import h5py
-import math
-import random
+import matplotlib.pyplot as plt
+import numpy as np
+
+from scripts import model
 
 
 def getData():
@@ -37,18 +35,19 @@ def getData():
     images = np.stack(images, axis=0)
     gt = np.stack(gt, axis=0)
 
-    gt = gt[:,:,:,None]
-    gt = (gt>=0.5).astype(np.int)
+    gt = gt[:, :, :, None]
+    gt = (gt >= 0.5).astype(np.int)
 
     return [images, gt]
+
 
 def genRandom(img, segs):
     img_modify = img.copy()
     segs_modify = segs.copy()
     rot = np.random.randint(1, 5, size=1)[0]
-    #print(rot)
+    # print(rot)
     flip = np.random.randint(0, 2, size=1)[0]
-    #print(flip)
+    # print(flip)
     if (flip):
         img_modify = np.flipud(img_modify)
         segs_modify = np.flipud(segs_modify)
@@ -56,11 +55,12 @@ def genRandom(img, segs):
     img_modify = np.rot90(img_modify, rot)
     segs_modify = np.rot90(segs_modify, rot)
     if (flip != 0 or rot < 4):
-        #print("Generated!")
-        return [img_modify, segs_modify, flip,rot]
+        # print("Generated!")
+        return [img_modify, segs_modify, flip, rot]
     else:
-        #print("Aborted!")
-        return [None,None,None,None]
+        # print("Aborted!")
+        return [None, None, None, None]
+
 
 def data_augment(X, y, total_samples=200):
     # This function augments the data to make it upto total_samples
@@ -117,13 +117,13 @@ def data_augment(X, y, total_samples=200):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Road Segmentation')
-    parser.add_argument('-batch_sz',default=32,type=int,help = 'Batch Size')
-    parser.add_argument('-epochs',default=100,type=int,help = 'No. of epochs')
-    parser.add_argument('-lr',default=0.001,type=float,help = 'Learning rate')
-    parser.add_argument('-mode',default = 1,type=int,help = 'Training or testing')
-    parser.add_argument('-save_folder',default='SegNet/',help='Where to save model')
+    parser.add_argument('-batch_sz', default=32, type=int, help='Batch Size')
+    parser.add_argument('-epochs', default=100, type=int, help='No. of epochs')
+    parser.add_argument('-lr', default=0.001, type=float, help='Learning rate')
+    parser.add_argument('-mode', default=1, type=int, help='Training or testing')
+    parser.add_argument('-save_folder', default='SegNet/', help='Where to save model')
     parser.add_argument('-frac_train', default=0.95, help='Fraction for training data')
-    parser.add_argument('-gpu', default=0, help='GPU number',type=int)
+    parser.add_argument('-gpu', default=0, help='GPU number', type=int)
     parser.add_argument('-sz_tr', default=200, help='GPU number', type=int)
     # mode = 1 train and test
     # mode = 2 only train
@@ -135,12 +135,12 @@ if __name__ == '__main__':
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
-    #im_sz = 32 # Square images
-    #n_samples = 100
-    #n_channels = 3
-    #n_outputs = 1
-    #lr = 0.001
-    #n_epochs = 10
+    # im_sz = 32 # Square images
+    # n_samples = 100
+    # n_channels = 3
+    # n_outputs = 1
+    # lr = 0.001
+    # n_epochs = 10
 
     n_epochs = args.epochs
     lr = args.lr
@@ -153,60 +153,57 @@ if __name__ == '__main__':
 
     hyper_param = {}
     for arg in vars(args):
-        hyper_param[str(arg)] = getattr(args,arg)
+        hyper_param[str(arg)] = getattr(args, arg)
 
-    with open(save_folder + 'hyper_param.txt','w') as f:
+    with open(save_folder + 'hyper_param.txt', 'w') as f:
         for key in hyper_param.keys():
             f.write(key + ' : ' + str(hyper_param[key]) + '\n')
 
     if not os.path.isfile('training_data.h5'):
         [X, y] = getData()
-        [X, y, flip_rot] = data_augment(X,y,total_samples = args.sz_tr)
-        file_data = h5py.File('training_data.h5','w')
+        [X, y, flip_rot] = data_augment(X, y, total_samples=args.sz_tr)
+        file_data = h5py.File('training_data.h5', 'w')
         file_data['images'] = X
         file_data['groundTruth'] = y
         file_data['flip_rot'] = flip_rot
         file_data.close()
 
     else:
-        file_data = h5py.File('training_data.h5','r')
+        file_data = h5py.File('training_data.h5', 'r')
         X = file_data['images'][()]
         y = file_data['groundTruth'][()]
         file_data.close()
-
 
     im_sz = X.shape[1]  # Square image
     n_samples = X.shape[0]
     n_channels = X.shape[3]
 
-    #Split the trainig and test dataset
-    n_train = int(n_samples*args.frac_train)
+    # Split the training and test dataset
+    n_train = int(n_samples * args.frac_train)
     idxs_order = np.random.permutation(np.arange(n_samples))
     idxs_train = idxs_order[:n_train]
     idxs_valid = idxs_order[n_train:]
 
-    X_train = X[idxs_train,:,:,:]
-    y_train = y[idxs_train,:,:,:]
+    X_train = X[idxs_train, :, :, :]
+    y_train = y[idxs_train, :, :, :]
 
-    X_valid = X[idxs_valid,:,:,:]
-    y_valid = y[idxs_valid,:,:,:]
+    X_valid = X[idxs_valid, :, :, :]
+    y_valid = y[idxs_valid, :, :, :]
 
-    #Update hyper_param
+    # Update hyper_param
     hyper_param['idxs_train'] = idxs_train
     hyper_param['idxs_valid'] = idxs_valid
 
-    with open(save_folder + 'hyper_param.pickle','wb') as f:
-        pickle.dump(hyper_param,f)
+    with open(save_folder + 'hyper_param.pickle', 'wb') as f:
+        pickle.dump(hyper_param, f)
 
-#    model = model.SegNet(im_sz = im_sz,n_channels= n_channels,lr = lr,\
-#                          n_epochs=n_epochs,batch_sz=batch_sz,save_folder=save_folder)
-    model = unet.UNet(save_folder,deepness=3, epochs=args.epochs)
+    model = model.UNet(save_folder, deepness=3, epochs=args.epochs)
     if (mode == 1):
-        model.train(X_train,y_train,X_valid,y_valid)
+        model.train(X_train, y_train, X_valid, y_valid)
         model.predict(X_valid)
     elif (mode == 2):
         model.train(X_train, y_train, X_valid, y_valid)
-    elif (mode ==3):
+    elif (mode == 3):
         model.predict(X_valid)
     else:
         print("Unknown behavior!")
