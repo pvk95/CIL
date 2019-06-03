@@ -6,4 +6,3 @@ training_data.h5
 ResUNet
 .idea
 .gitignore
-.scripts/.DS_Store
