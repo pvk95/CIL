@@ -1,5 +1,3 @@
-
-
 '''
 #SegNet architecture: https://arxiv.org/pdf/1511.00561.pdf
 #Unet architecture:
@@ -12,12 +10,12 @@ import models
 import utils
 import numpy as np
 import argparse
+import os
 import pickle
-import sys
 import os
 import h5py
 
-def getSegImgs(model, X_test,save_folder):
+def getSegImgs(model, X_test, save_folder):
     X_test = utils.resize_to_tr(X_test)
     if sub_sample:
         X_test = utils.getPatches(X_test)
@@ -26,7 +24,8 @@ def getSegImgs(model, X_test,save_folder):
         y_pred = utils.patch2img(y_pred)
     
     y_pred = utils.resize_to_test(y_pred)
-    utils.getPredImgs(y_pred, file_names,save_folder)
+    utils.getPredImgs(y_pred, file_names, save_folder)
+
 
 def getValid(model, X_valid):
     y_valid = model.predict(X_valid)
@@ -63,12 +62,12 @@ if __name__ == '__main__':
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
-    #im_sz = 32 # Square images
-    #n_samples = 100
-    #n_channels = 3
-    #n_outputs = 1
-    #lr = 0.001
-    #n_epochs = 10
+    # im_sz = 32 # Square images
+    # n_samples = 100
+    # n_channels = 3
+    # n_outputs = 1
+    # lr = 0.001
+    # n_epochs = 10
 
     n_epochs = args.epochs
     lr = args.lr
@@ -85,9 +84,9 @@ if __name__ == '__main__':
 
     hyper_param = {}
     for arg in vars(args):
-        hyper_param[str(arg)] = getattr(args,arg)
+        hyper_param[str(arg)] = getattr(args, arg)
 
-    with open(save_folder + 'hyper_param.txt','w') as f:
+    with open(save_folder + 'hyper_param.txt', 'w') as f:
         for key in hyper_param.keys():
             f.write(key + ' : ' + str(hyper_param[key]) + '\n')
 
@@ -97,14 +96,14 @@ if __name__ == '__main__':
     n_samples = X.shape[0]
     n_channels = X.shape[3]
 
-    #Split the trainig and test dataset
-    n_valid = int(n_samples*frac_valid)
+    # Split the trainig and test dataset
+    n_valid = int(n_samples * frac_valid)
     idxs_order = np.random.permutation(np.arange(n_samples))
     idxs_valid = idxs_order[:n_valid]
     idxs_train = idxs_order[n_valid:]
 
-    X_train = X[idxs_train,:,:,:]
-    y_train = y[idxs_train,:,:,:]
+    X_train = X[idxs_train, :, :, :]
+    y_train = y[idxs_train, :, :, :]
 
     X_valid = X[idxs_valid,:,:,:]
     y_valid = y[idxs_valid,:,:,:]
@@ -131,6 +130,8 @@ if __name__ == '__main__':
     elif(arch == 'unet'):
         model = models.UNet(save_folder,input_shape=input_shape,deepness=4, \
                             epochs=args.epochs,batch_size=batch_sz)
+    elif(arch == 'resnet'):
+        model = models.ResUNet(save_folder=save_folder, epochs = args.epochs)
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)

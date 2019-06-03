@@ -1,9 +1,12 @@
-import numpy as np
 import glob
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import os
+
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 def patch2img(X,npc_img = 4, stride=200):
 
@@ -64,8 +67,8 @@ def getData():
     images = np.stack(images, axis=0)
     gt = np.stack(gt, axis=0)
 
-    gt = gt[:,:,:,None]
-    gt = (gt>=0.5).astype(np.int)
+    gt = gt[:, :, :, None]
+    gt = (gt >= 0.5).astype(np.int)
 
     test_imgs_file = np.array(glob.glob('data/test_images/test_*.png'))
     idxs = np.array([int(x.split('.')[0].split('_')[-1]) for x in test_imgs_file])
@@ -78,15 +81,16 @@ def getData():
 
     test_imgs = np.stack(test_imgs, axis=0)
 
-    return [images, gt,test_imgs,idxs]
+    return [images, gt, test_imgs, idxs]
+
 
 def genRandom(img, segs):
     img_modify = img.copy()
     segs_modify = segs.copy()
     rot = np.random.randint(1, 5, size=1)[0]
-    #print(rot)
+    # print(rot)
     flip = np.random.randint(0, 2, size=1)[0]
-    #print(flip)
+    # print(flip)
     if (flip):
         img_modify = np.flipud(img_modify)
         segs_modify = np.flipud(segs_modify)
@@ -94,11 +98,12 @@ def genRandom(img, segs):
     img_modify = np.rot90(img_modify, rot)
     segs_modify = np.rot90(segs_modify, rot)
     if (flip != 0 or rot < 4):
-        #print("Generated!")
-        return [img_modify, segs_modify, flip,rot]
+        # print("Generated!")
+        return [img_modify, segs_modify, flip, rot]
     else:
-        #print("Aborted!")
-        return [None,None,None,None]
+        # print("Aborted!")
+        return [None, None, None, None]
+
 
 def data_augment(X, y, total_samples=200):
     # This function augments the data to make it upto total_samples
@@ -154,9 +159,8 @@ def data_augment(X, y, total_samples=200):
 def getPredImgs(y_pred,file_names,save_folder):    
     if len(y_pred.shape)==4:
         y_pred = y_pred[:,:,:,0]
-    
-    print(y_pred.shape)
 
+    print(y_pred.shape)
     if not os.path.exists(save_folder + 'pred_imgs/'):
         os.makedirs(save_folder + 'pred_imgs/')
 
@@ -168,13 +172,13 @@ def resize_to_tr(X):
     n_samples = X.shape[0]
     width = 400
     height = 400
-    dim = (width,height)
+    dim = (width, height)
     resize_imgs = []
     for i in range(n_samples):
         resize_imgs.append(cv2.resize(X[i,...],dim,interpolation = cv2.INTER_CUBIC))
-
-    resize_imgs = np.stack(resize_imgs,axis=0)
+    resize_imgs = np.stack(resize_imgs, axis=0)
     return resize_imgs
+
 
 def resize_to_test(X):
     n_samples = X.shape[0]
@@ -191,8 +195,8 @@ def resize_to_test(X):
     return resize_imgs
 
 
-if __name__=='__main__':
-    X,y,X_test,file_names = getData()
+if __name__ == '__main__':
+    X, y, X_test, file_names = getData()
     xr = resize_to_tr(X_test)
-    yr = resize_to_test(y[:,:,:,0])
-    getPredImgs(X_test,file_names,'./')
+    yr = resize_to_test(y[:, :, :, 0])
+    getPredImgs(X_test, file_names, './')
