@@ -1,19 +1,15 @@
 import os
-import pickle
 import sys
-
+import pickle
 import h5py
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras.layers import Activation
-from tensorflow.python.keras.layers import Conv2DTranspose
-from tensorflow.python.keras.callbacks import EarlyStopping,ReduceLROnPlateau
-import pickle
+from tensorflow.python.keras.layers import Activation, Dropout, Conv2DTranspose, Input, Conv2D, BatchNormalization, MaxPool2D
+from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.python.keras.backend import set_session
-from tensorflow.python.keras.layers import Input, Conv2D, BatchNormalization
-from tensorflow.python.keras.layers import MaxPool2D
 from tensorflow.python.keras.models import Model
+
 
 class getModel(object):
     def __init__(self, save_folder='./', epochs=30, verbose=1, batch_size=4, model_name='UNet.h5'):
@@ -26,17 +22,22 @@ class getModel(object):
         self.model_name = model_name
 
     def train(self, X_train, Y_train, X_valid, Y_valid):
-        
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
-        sess = tf.Session(config=config)
-        set_session(sess)  # set this TensorFlow session as the default session for Keras
-        
-        early = EarlyStopping(monitor="val_acc", mode="max", patience=5, verbose=self.verbose)
-        redonplat = ReduceLROnPlateau(monitor="val_acc", mode="max", patience=3, verbose=self.verbose)
 
+        config = tf.ConfigProto()
+        # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+        sess = tf.Session(config=config)
+        # set this TensorFlow session as the default session for Keras
+        set_session(sess)
+
+        early = EarlyStopping(monitor="val_acc", mode="max",
+                              patience=10, verbose=self.verbose)
+        redonplat = ReduceLROnPlateau(
+            monitor="val_acc", mode="max", patience=5, verbose=self.verbose)
+
+        callbacks = [early, redonplat]
         history = self.model.fit(x=X_train, y=Y_train, validation_data=(X_valid, Y_valid),
-                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
+                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs,
+                                 callbacks=callbacks)
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
@@ -59,29 +60,29 @@ class getModel(object):
             sys.exit(1)
         self.model = tf.keras.models.load_model(fileName)
         y_pred = self.model.predict(X, batch_size=self.batch_size)
-        y_pred = (y_pred>=0.5).astype(np.int)
+        y_pred = (y_pred >= 0.5).astype(np.int)
 
         return y_pred
 
 
 class SegNet(getModel):
-    def __init__(self,save_folder = './',lr=0.001,input_shape = (400, 400, 3), epochs = 30, verbose=1,\
-                 batch_size=32,model_name = 'SegNet.h5'):
+    def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
+                 batch_size=32, model_name='SegNet.h5'):
 
         # Model specific params
         self.lr = lr
         self.input_shape = input_shape
-        getModel.__init__(self, save_folder, epochs, verbose, batch_size, model_name)
+        getModel.__init__(self, save_folder, epochs,
+                          verbose, batch_size, model_name)
 
         # Create and compile the model SegNet
         self.model = self.create_model()
 
-
-    def add_conv_layer(self,input,n_filters,flt_sz=5,stride=1,n_conv=2):
+    def add_conv_layer(self, input, n_filters, flt_sz=5, stride=1, n_conv=2):
 
         xs = [input]
         for i in range(n_conv):
-            output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride, \
+            output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride,
                             padding="same")(xs[-1])
 
             output = BatchNormalization()(output)
@@ -92,15 +93,15 @@ class SegNet(getModel):
 
         return output
 
-    def add_deconv_layer(self,input,n_filters,flt_sz=5,strides=2,n_conv=3,last=False):
+    def add_deconv_layer(self, input, n_filters, flt_sz=5, strides=2, n_conv=3, last=False):
 
         xs = [input]
-        output = Conv2DTranspose(filters=n_filters, kernel_size=flt_sz, \
+        output = Conv2DTranspose(filters=n_filters, kernel_size=flt_sz,
                                  strides=strides, padding='same')(input)
         xs.append(output)
 
         for i in range(n_conv):
-            output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1, \
+            output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
                             padding="same")(xs[-1])
             output = BatchNormalization()(output)
 
@@ -115,34 +116,37 @@ class SegNet(getModel):
 
     def create_model(self):
         self.input = Input(self.input_shape)
-        layer_1 = self.add_conv_layer(self.input,n_conv=2,n_filters=20)
-        layer_2 = self.add_conv_layer(layer_1, n_conv=2,n_filters=40)
-        layer_3 = self.add_conv_layer(layer_2, n_conv=3,n_filters=80)
-        layer_4 = self.add_conv_layer(layer_3, n_conv=3,n_filters=100)
+        layer_1 = self.add_conv_layer(self.input, n_conv=2, n_filters=20)
+        layer_2 = self.add_conv_layer(layer_1, n_conv=2, n_filters=40)
+        layer_3 = self.add_conv_layer(layer_2, n_conv=3, n_filters=80)
+        layer_4 = self.add_conv_layer(layer_3, n_conv=3, n_filters=100)
 
-        deconv_3 = self.add_deconv_layer(layer_4, n_conv=3,n_filters=80)
-        deconv_2 = self.add_deconv_layer(deconv_3,n_conv=3,n_filters=40)
-        deconv_1 = self.add_deconv_layer(deconv_2,n_conv=2,n_filters=20)
-        output = self.add_deconv_layer(deconv_1,n_conv=2,n_filters=1,last=True)
+        deconv_3 = self.add_deconv_layer(layer_4, n_conv=3, n_filters=80)
+        deconv_2 = self.add_deconv_layer(deconv_3, n_conv=3, n_filters=40)
+        deconv_1 = self.add_deconv_layer(deconv_2, n_conv=2, n_filters=20)
+        output = self.add_deconv_layer(
+            deconv_1, n_conv=2, n_filters=1, last=True)
 
         model = Model(self.input, output)
         model.summary()
-        
-        opt = tf.keras.optimizers.Adam(lr = self.lr)
-        model.compile(optimizer = opt,loss = 'binary_crossentropy',metrics = ['accuracy'])
+
+        opt = tf.keras.optimizers.Adam(lr=self.lr)
+        model.compile(optimizer=opt, loss='binary_crossentropy',
+                      metrics=['accuracy'])
 
         return model
 
 
 class UNet(getModel):
-    def __init__(self, save_folder = './', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1, \
-                 batch_size=32,deepness=4,model_name = 'UNet.h5'):
+    def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
+                 batch_size=32, deepness=4, model_name='UNet.h5'):
 
         # Model specific params
         self.deepness = deepness
         self.lr = lr
         self.input_shape = input_shape
-        getModel.__init__(self, save_folder, epochs, verbose, batch_size, model_name)
+        getModel.__init__(self, save_folder, epochs,
+                          verbose, batch_size, model_name)
 
         # Create and compile model UNet
         self.model = self.create_model()
@@ -180,15 +184,17 @@ class UNet(getModel):
         return model
 
     def conv_layer(self, filters, inp):
+        dropout = Dropout(0.1)(inp)
         conv1 = keras.layers.Conv2D(
-            filters, 3, activation='relu', padding='same')(inp)
+            filters, 3, activation='relu', padding='same')(dropout)
         conv2 = keras.layers.Conv2D(
             filters, 3, activation='relu', padding='same')(conv1)
         max_pool = keras.layers.MaxPool2D(2, strides=2)(conv2)
         return conv2, max_pool
 
     def upconv_layer(self, filters, inp, skip):
-        up_conv = keras.layers.Conv2DTranspose(filters, 2, 2)(inp)
+        dropout = Dropout(0.1)(inp)
+        up_conv = keras.layers.Conv2DTranspose(filters, 2, 2)(dropout)
         up_shape = up_conv.shape.as_list()
         skip_shape = skip.shape.as_list()
 
@@ -222,7 +228,8 @@ class ResUNet():
         self.deepness = deepness
         self.save_folder = save_folder
         self.model_name = "res-unet"
-        self.model_file = self.model_name + datetime.datetime.today().strftime("_%d_%m_%y_%H:%M:%S") + ".h5"
+        self.model_file = self.model_name + \
+            datetime.datetime.today().strftime("_%d_%m_%y_%H:%M:%S") + ".h5"
 
     def res_block(self, x, nb_filters, strides):
         res_path = keras.layers.BatchNormalization()(x)
@@ -234,7 +241,8 @@ class ResUNet():
         res_path = keras.layers.Conv2D(filters=nb_filters[1], kernel_size=(3, 3), padding='same', strides=strides[1])(
             res_path)
 
-        shortcut = keras.layers.Conv2D(nb_filters[1], kernel_size=(1, 1), strides=strides[0])(x)
+        shortcut = keras.layers.Conv2D(
+            nb_filters[1], kernel_size=(1, 1), strides=strides[0])(x)
         shortcut = keras.layers.BatchNormalization()(shortcut)
 
         res_path = keras.layers.add([shortcut, res_path])
@@ -243,13 +251,16 @@ class ResUNet():
     def encoder(self, x):
         to_decoder = []
 
-        main_path = keras.layers.Conv2D(filters=50, kernel_size=(3, 3), padding='same', strides=(1, 1))(x)
+        main_path = keras.layers.Conv2D(filters=50, kernel_size=(
+            3, 3), padding='same', strides=(1, 1))(x)
         main_path = keras.layers.BatchNormalization()(main_path)
         main_path = keras.layers.Activation(activation='relu')(main_path)
 
-        main_path = keras.layers.Conv2D(filters=50, kernel_size=(3, 3), padding='same', strides=(1, 1))(main_path)
+        main_path = keras.layers.Conv2D(filters=50, kernel_size=(
+            3, 3), padding='same', strides=(1, 1))(main_path)
 
-        shortcut = keras.layers.Conv2D(filters=50, kernel_size=(1, 1), strides=(1, 1))(x)
+        shortcut = keras.layers.Conv2D(
+            filters=50, kernel_size=(1, 1), strides=(1, 1))(x)
         shortcut = keras.layers.BatchNormalization()(shortcut)
 
         main_path = keras.layers.add([shortcut, main_path])
@@ -266,15 +277,18 @@ class ResUNet():
 
     def decoder(self, x, from_encoder):
         main_path = keras.layers.UpSampling2D(size=(2, 2))(x)
-        main_path = keras.layers.concatenate([main_path, from_encoder[2]], axis=3)
+        main_path = keras.layers.concatenate(
+            [main_path, from_encoder[2]], axis=3)
         main_path = self.res_block(main_path, [200, 200], [(1, 1), (1, 1)])
 
         main_path = keras.layers.UpSampling2D(size=(2, 2))(main_path)
-        main_path = keras.layers.concatenate([main_path, from_encoder[1]], axis=3)
+        main_path = keras.layers.concatenate(
+            [main_path, from_encoder[1]], axis=3)
         main_path = self.res_block(main_path, [100, 100], [(1, 1), (1, 1)])
 
         main_path = keras.layers.UpSampling2D(size=(2, 2))(main_path)
-        main_path = keras.layers.concatenate([main_path, from_encoder[0]], axis=3)
+        main_path = keras.layers.concatenate(
+            [main_path, from_encoder[0]], axis=3)
         main_path = self.res_block(main_path, [50, 50], [(1, 1), (1, 1)])
 
         return main_path
@@ -284,9 +298,11 @@ class ResUNet():
 
         to_decoder = self.encoder(x=self.input)
 
-        path = self.res_block(x=to_decoder[2], nb_filters=[400, 400], strides=[(2, 2), (1, 1)])
+        path = self.res_block(x=to_decoder[2], nb_filters=[
+                              400, 400], strides=[(2, 2), (1, 1)])
         path = self.decoder(x=path, from_encoder=to_decoder)
-        path = keras.layers.Conv2D(filters=1, kernel_size=(1, 1), activation='sigmoid')(path)
+        path = keras.layers.Conv2D(filters=1, kernel_size=(
+            1, 1), activation='sigmoid')(path)
 
         model = keras.models.Model(inputs=self.input, outputs=path)
         model.summary()

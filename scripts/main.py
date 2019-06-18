@@ -59,8 +59,8 @@ if __name__ == '__main__':
 
     np.random.seed(0)
 
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+    #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    #os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
     # im_sz = 32 # Square images
     # n_samples = 100
