@@ -34,10 +34,8 @@ class getModel(object):
         redonplat = ReduceLROnPlateau(
             monitor="val_acc", mode="max", patience=5, verbose=self.verbose)
 
-        callbacks = [early, redonplat]
         history = self.model.fit(x=X_train, y=Y_train, validation_data=(X_valid, Y_valid),
-                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs,
-                                 callbacks=callbacks)
+                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
