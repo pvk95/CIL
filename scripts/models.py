@@ -6,8 +6,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.keras.layers import (
-    Activation, Dropout, Conv2DTranspose, Input, Conv2D, 
-    BatchNormalization, MaxPool2D, Concatenate, Flatten, 
+    Activation, Dropout, Conv2DTranspose, Input, Conv2D,
+    BatchNormalization, MaxPool2D, Concatenate, Flatten,
     Reshape, Dense)
 from tensorflow.python.keras.callbacks import (
     EarlyStopping, ReduceLROnPlateau)
@@ -84,7 +84,7 @@ class SegNet(getModel):
 
         xs = [input]
         for i in range(n_conv):
-            dropout = Dropout(0.1)(xs[-1], name=f'dropout_{i}_{num}_segnet')
+            dropout = Dropout(0.1, name=f'dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride,
                             padding="same", name=f'conv2d_{i}_{num}_segnet')(dropout)
 
@@ -100,19 +100,21 @@ class SegNet(getModel):
 
         xs = [input]
         output = Conv2DTranspose(filters=n_filters, kernel_size=flt_sz,
-                                 strides=strides, padding='same', name=f'conv2tranpose_{num}_segnet')(input)
+                                 strides=strides, padding='same', name=f'up_conv2tranpose_{num}_segnet')(input)
         xs.append(output)
 
         for i in range(n_conv):
-            dropout = Dropout(0.1, name='dropout_{i}_{num}_segnet')(xs[-1])
+            dropout = Dropout(0.1, name='up_dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
-                            padding="same", name=f'conv2d_{i}_{num}_segnet')(dropout)
-            output = BatchNormalization(name=f'bn_{i}_{num}_segnet')(output)
+                            padding="same", name=f'up_conv2d_{i}_{num}_segnet')(dropout)
+            output = BatchNormalization(name=f'up_bn_{i}_{num}_segnet')(output)
 
             if (last and i == n_conv - 1):
-                output = Activation('sigmoid', name=f'sigmoid_{i}_{num}_segnet')(output)
+                output = Activation(
+                    'sigmoid', name=f'up_sigmoid_{i}_{num}_segnet')(output)
             else:
-                output = Activation('relu', name=f'relu_{i}_{num}_segnet')(output)
+                output = Activation(
+                    'relu', name=f'up_relu_{i}_{num}_segnet')(output)
 
             xs.append(output)
 
@@ -120,14 +122,18 @@ class SegNet(getModel):
 
     def create_model(self):
         self.input = Input(self.input_shape, name="Input_segnet")
-        layer_1 = self.add_conv_layer(self.input, n_conv=2, n_filters=20, num=1)
+        layer_1 = self.add_conv_layer(
+            self.input, n_conv=2, n_filters=20, num=1)
         layer_2 = self.add_conv_layer(layer_1, n_conv=2, n_filters=40, num=2)
         layer_3 = self.add_conv_layer(layer_2, n_conv=3, n_filters=80, num=3)
         layer_4 = self.add_conv_layer(layer_3, n_conv=3, n_filters=100, num=4)
 
-        deconv_3 = self.add_deconv_layer(layer_4, n_conv=3, n_filters=80, num=3)
-        deconv_2 = self.add_deconv_layer(deconv_3, n_conv=3, n_filters=40, num=2)
-        deconv_1 = self.add_deconv_layer(deconv_2, n_conv=2, n_filters=20, num=1)
+        deconv_3 = self.add_deconv_layer(
+            layer_4, n_conv=3, n_filters=80, num=3)
+        deconv_2 = self.add_deconv_layer(
+            deconv_3, n_conv=3, n_filters=40, num=2)
+        deconv_1 = self.add_deconv_layer(
+            deconv_2, n_conv=2, n_filters=20, num=1)
         output = self.add_deconv_layer(
             deconv_1, n_conv=2, n_filters=1, last=True, num=0)
 
@@ -163,20 +169,20 @@ class UNet(getModel):
         # Convolution
         for x in range(self.deepness):
             filters = 2 ** (6 + x)
-            skip, inp = self.conv_layer(filters, inp)
+            skip, inp = self.conv_layer(filters, inp, num=x)
             self.skip.append(skip)
 
         # lowest layer
         conv1 = keras.layers.Conv2D(
-            2 ** (6 + self.deepness), 3, activation='relu', padding='same')(inp)
+            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name='conv2d_1lowest_unet')(inp)
         conv2 = keras.layers.Conv2D(
-            2 ** (6 + self.deepness), 3, activation='relu', padding='same')(conv1)
+            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_2lowest_unet')(conv1)
 
         # Upsample and convolutions
         inp = conv2
         for x in range(self.deepness - 1, -1, -1):
             filters = 2 ** (6 + x)
-            inp = self.upconv_layer(filters, inp, self.skip[x])
+            inp = self.upconv_layer(filters, inp, self.skip[x], num=x)
 
         output = keras.layers.Conv2D(1, 1, activation='sigmoid')(inp)
         model = keras.models.Model(inputs=self.input, outputs=output)
@@ -187,18 +193,19 @@ class UNet(getModel):
 
         return model
 
-    def conv_layer(self, filters, inp):
-        dropout = Dropout(0.1)(inp)
+    def conv_layer(self, filters, inp, num=0):
+        dropout = Dropout(0.1, name=f'down_dropout_{num}_unet')(inp)
         conv1 = keras.layers.Conv2D(
-            filters, 3, activation='relu', padding='same')(dropout)
+            filters, 3, activation='relu', padding='same', name=f'down_conv2d_1_{num}_unet')(dropout)
         conv2 = keras.layers.Conv2D(
-            filters, 3, activation='relu', padding='same')(conv1)
-        max_pool = keras.layers.MaxPool2D(2, strides=2)(conv2)
+            filters, 3, activation='relu', padding='same', name=f'down_conv2d_2_{num}_unet')(conv1)
+        max_pool = keras.layers.MaxPool2D(
+            2, strides=2, name=f'down_maxpool_{num}_unet')(conv2)
         return conv2, max_pool
 
-    def upconv_layer(self, filters, inp, skip):
-        dropout = Dropout(0.1)(inp)
-        up_conv = keras.layers.Conv2DTranspose(filters, 2, 2)(dropout)
+    def upconv_layer(self, filters, inp, skip, num=0):
+        dropout = Dropout(0.1, name=f'up_dropout_{num}_unet')(inp)
+        up_conv = keras.layers.Conv2DTranspose(filters, 2, 2, name=f'up_conv2dt_{num}_unet')(dropout)
         up_shape = up_conv.shape.as_list()
         skip_shape = skip.shape.as_list()
 
@@ -208,13 +215,13 @@ class UNet(getModel):
         y_end = y_start + up_shape[2]
 
         cut_skip = keras.layers.Lambda(
-            lambda x: x[:, x_start:x_end, y_start: y_end, :])(skip)
+            lambda x: x[:, x_start:x_end, y_start: y_end, :], name=f'up_lambda_{num}_unet')(skip)
 
-        merge = keras.layers.concatenate([cut_skip, up_conv], axis=-1)
+        merge = keras.layers.Concatenate(axis=-1, name=f'up_merge_{num}_unet')([cut_skip, up_conv])
         conv1 = keras.layers.Conv2D(
-            filters, 3, activation='relu', padding='same')(merge)
+            filters, 3, activation='relu', padding='same', name=f'up_conv2d_1_{num}_unet')(merge)
         conv2 = keras.layers.Conv2D(
-            filters, 3, activation='relu', padding='same')(conv1)
+            filters, 3, activation='relu', padding='same', name=f'up_conv2d_2_{num}_unet')(conv1)
 
         return conv2
 
@@ -374,9 +381,9 @@ class CombinedModel(getModel):
         self.lr = lr
         self.input_shape = input_shape
         getModel.__init__(self, save_folder, epochs,
-                       verbose, batch_size, model_name)
+                          verbose, batch_size, model_name)
         self.model = self.create_model()
-    
+
     def train(self, X_train, Y_train, X_valid, Y_valid):
 
         config = tf.ConfigProto()
@@ -426,7 +433,7 @@ class CombinedModel(getModel):
         for layer in segnet.layers:
             layer.trainable = False
             layer.__setattr__('name', layer.name + str("_segnet"))
-        
+
         for layer in unet.layers:
             layer.trainable = False
             layer.name = layer.name + str("_unet")
@@ -435,9 +442,9 @@ class CombinedModel(getModel):
         segnet_output = segnet.layers[-1].output
         unet_output = unet.layers[-1].output
 
-        # Merge layers and apply  2D Convolutions 
+        # Merge layers and apply  2D Convolutions
         concat = Concatenate(axis=-1)([segnet_output, unet_output])
-        conv2d = Conv2D(1, (5,5), padding='same', activation='relu')(concat)
+        conv2d = Conv2D(1, (5, 5), padding='same', activation='relu')(concat)
         outputs = conv2d
 
         # get inputs
@@ -447,7 +454,8 @@ class CombinedModel(getModel):
         model = Model(inputs=[unet_input, segnet_input], outputs=outputs)
         model.summary()
 
-        import pdb; pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
                       loss='binary_crossentropy', metrics=['accuracy'])
 
