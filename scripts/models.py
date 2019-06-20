@@ -80,8 +80,9 @@ class SegNet(getModel):
 
         xs = [input]
         for i in range(n_conv):
+            dropout = Dropout(0.1)(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride,
-                            padding="same")(xs[-1])
+                            padding="same")(dropout)
 
             output = BatchNormalization()(output)
             output = Activation('relu')(output)
@@ -99,8 +100,9 @@ class SegNet(getModel):
         xs.append(output)
 
         for i in range(n_conv):
+            dropout = Dropout(0.1)(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
-                            padding="same")(xs[-1])
+                            padding="same")(dropout)
             output = BatchNormalization()(output)
 
             if (last and i == n_conv - 1):
