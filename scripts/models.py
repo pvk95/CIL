@@ -104,7 +104,7 @@ class SegNet(getModel):
         xs.append(output)
 
         for i in range(n_conv):
-            dropout = Dropout(0.1, name='up_dropout_{i}_{num}_segnet')(xs[-1])
+            dropout = Dropout(0.1, name=f'up_dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
                             padding="same", name=f'up_conv2d_{i}_{num}_segnet')(dropout)
             output = BatchNormalization(name=f'up_bn_{i}_{num}_segnet')(output)
@@ -205,7 +205,8 @@ class UNet(getModel):
 
     def upconv_layer(self, filters, inp, skip, num=0):
         dropout = Dropout(0.1, name=f'up_dropout_{num}_unet')(inp)
-        up_conv = keras.layers.Conv2DTranspose(filters, 2, 2, name=f'up_conv2dt_{num}_unet')(dropout)
+        up_conv = keras.layers.Conv2DTranspose(
+            filters, 2, 2, name=f'up_conv2dt_{num}_unet')(dropout)
         up_shape = up_conv.shape.as_list()
         skip_shape = skip.shape.as_list()
 
@@ -217,7 +218,8 @@ class UNet(getModel):
         cut_skip = keras.layers.Lambda(
             lambda x: x[:, x_start:x_end, y_start: y_end, :], name=f'up_lambda_{num}_unet')(skip)
 
-        merge = keras.layers.Concatenate(axis=-1, name=f'up_merge_{num}_unet')([cut_skip, up_conv])
+        merge = keras.layers.Concatenate(
+            axis=-1, name=f'up_merge_{num}_unet')([cut_skip, up_conv])
         conv1 = keras.layers.Conv2D(
             filters, 3, activation='relu', padding='same', name=f'up_conv2d_1_{num}_unet')(merge)
         conv2 = keras.layers.Conv2D(
