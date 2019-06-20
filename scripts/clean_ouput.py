@@ -13,7 +13,7 @@ This file takes two inputs:
     - the Folder the cleaned images are written to
 
 for example: python3 script/clean_output.py Combined/ Cleaned/
-This will look into the Combined folder for created images clean them up and write them into Cleaned
+This will look into the Combined folder for predicted images, clean them up and write them into the "Cleaned"-folder
 
 
 This small script applies a morphological opening on the already created output files
