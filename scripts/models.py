@@ -5,14 +5,14 @@ import h5py
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras.layers import (
+from tensorflow.keras.layers import (
     Activation, Dropout, Conv2DTranspose, Input, Conv2D,
     BatchNormalization, MaxPool2D, Concatenate, Flatten,
     Reshape, Dense)
-from tensorflow.python.keras.callbacks import (
+from tensorflow.keras.callbacks import (
     EarlyStopping, ReduceLROnPlateau)
-from tensorflow.python.keras.backend import set_session
-from tensorflow.python.keras.models import Model, load_model
+from tensorflow.keras.backend import set_session
+from tensorflow.keras.models import Model, load_model
 
 
 class getModel(object):
@@ -27,11 +27,11 @@ class getModel(object):
 
     def train(self, X_train, Y_train, X_valid, Y_valid):
 
-        config = tf.ConfigProto()
+        #config = tf.ConfigProto()
         # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
-        sess = tf.Session(config=config)
+        #sess = tf.Session(config=config)
         # set this TensorFlow session as the default session for Keras
-        set_session(sess)
+        #set_session(sess)
 
         early = EarlyStopping(monitor="val_acc", mode="max",
                               patience=10, verbose=self.verbose)
@@ -379,7 +379,7 @@ class ResUNet():
 
 class CombinedModel(getModel):
     def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
-                 batch_size=32, model_name='CombinedModels.h5'):
+                 batch_size=32, model_name='CombinedModel.h5'):
         self.lr = lr
         self.input_shape = input_shape
         getModel.__init__(self, save_folder, epochs,
@@ -388,11 +388,11 @@ class CombinedModel(getModel):
 
     def train(self, X_train, Y_train, X_valid, Y_valid):
 
-        config = tf.ConfigProto()
+        #config = tf.ConfigProto()
         # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
-        sess = tf.Session(config=config)
+        #sess = tf.Session(config=config)
         # set this TensorFlow session as the default session for Keras
-        set_session(sess)
+        #set_session(sess)
 
         early = EarlyStopping(monitor="val_acc", mode="max",
                               patience=10, verbose=self.verbose)
@@ -434,11 +434,9 @@ class CombinedModel(getModel):
         # make the layers untrainable
         for layer in segnet.layers:
             layer.trainable = False
-            layer.__setattr__('name', layer.name + str("_segnet"))
 
         for layer in unet.layers:
             layer.trainable = False
-            layer.name = layer.name + str("_unet")
 
         # get ouput layers
         segnet_output = segnet.layers[-1].output
@@ -446,7 +444,7 @@ class CombinedModel(getModel):
 
         # Merge layers and apply  2D Convolutions
         concat = Concatenate(axis=-1)([segnet_output, unet_output])
-        conv2d = Conv2D(1, (5, 5), padding='same', activation='relu')(concat)
+        conv2d = Conv2D(1, (5, 5), padding='same', activation='relu', name="conv2d_last")(concat)
         outputs = conv2d
 
         # get inputs
@@ -456,8 +454,6 @@ class CombinedModel(getModel):
         model = Model(inputs=[unet_input, segnet_input], outputs=outputs)
         model.summary()
 
-        import pdb
-        pdb.set_trace()
         model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
                       loss='binary_crossentropy', metrics=['accuracy'])
 

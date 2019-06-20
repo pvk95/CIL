@@ -8,5 +8,6 @@ ResUNet/
 UNet/
 SegNet/
 Combined/
+Cleaned/
 *.pyc
 *.h5

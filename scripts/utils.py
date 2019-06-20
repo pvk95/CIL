@@ -165,7 +165,7 @@ def getPredImgs(y_pred,file_names,save_folder):
         os.makedirs(save_folder + 'pred_imgs/')
 
     for i in range(len(file_names)):
-        fileName = save_folder + 'pred_imgs/test_img_{}'.format(file_names[i])
+        fileName = save_folder + 'pred_imgs/test_img_{}.png'.format(file_names[i])
         plt.imsave(fileName,y_pred[i,:,:],cmap = cm.gray)
 
 def resize_to_tr(X):

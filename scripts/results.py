@@ -4,7 +4,7 @@ import h5py
 import sys
 import pickle
 import os
-from tensorflow.python import keras
+from tensorflow import keras
 import utils
 import argparse
 
@@ -102,11 +102,16 @@ if __name__ =='__main__':
         model = keras.models.load_model(save_folder + 'checkpoint/SegNet.h5')
     elif arch=='unet':
         model = keras.models.load_model(save_folder + 'checkpoint/UNet.h5')
+    elif arch == 'combined':
+        model = keras.models.load_model(save_folder + 'checkpoint/CombinedModel.h5')
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)
 
-    y_pred_train = model.predict(X_train[indexes,...])
+    if arch == 'combined':
+        y_pred_train = model.predict((X_train[indexes, ...], X_train[indexes, ...]))
+    else:
+        y_pred_train = model.predict(X_train[indexes,...])
     y_pred_train = (y_pred_train>=0.5).astype(np.int)
     
     for i,idx in enumerate(indexes):
