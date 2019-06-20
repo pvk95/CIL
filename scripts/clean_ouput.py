@@ -7,6 +7,19 @@ import scipy
 import sys
 import os
 
+'''
+This file takes two inputs:
+    - the Folder which has all the pred_imgs stored
+    - the Folder the cleaned images are written to
+
+for example: python3 script/clean_output.py Combined/ Cleaned/
+This will look into the Combined folder for created images clean them up and write them into Cleaned
+
+
+This small script applies a morphological opening on the already created output files
+and thus cleans them from any "salt"-noise (random white pixels)
+This script should be applied before running mask_to_submission.py
+'''
 
 if __name__ == "__main__":
     folder = sys.argv[1]
