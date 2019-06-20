@@ -378,6 +378,10 @@ class ResUNet():
 
 
 class CombinedModel(getModel):
+    '''
+    This model combines an already saved UNet and an already saved SegNet and uses an Convolution
+    to combined both models.
+    '''
     def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
                  batch_size=32, model_name='CombinedModel.h5'):
         self.lr = lr
