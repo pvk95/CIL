@@ -132,6 +132,8 @@ if __name__ == '__main__':
                             epochs=args.epochs,batch_size=batch_sz)
     elif(arch == 'resnet'):
         model = models.ResUNet(save_folder=save_folder, epochs = args.epochs)
+    elif(arch == 'combined'):
+        model = models.CombinedModel(save_folder=save_folder, epochs=args.epochs, batch_size=batch_sz)
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)

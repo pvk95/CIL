@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #Train the model first
-python3 scripts/main.py -save_folder SegNet/ -arch segnet -lr 0.01 -batch_sz 64 -epochs 150
+python3 scripts/main.py -save_folder Combined/ -arch combined -lr 0.01 -batch_sz 1 -epochs 150
 
 #Get predictions
-python3 scripts/results.py -save_folder SegNet/ -arch segnet
+python3 scripts/results.py -save_folder Combined/ -arch combined 
 

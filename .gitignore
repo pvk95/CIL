@@ -7,4 +7,6 @@ training_data.h5
 ResUNet/
 UNet/
 SegNet/
+Combined/
 *.pyc
+*.h5

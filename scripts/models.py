@@ -5,10 +5,14 @@ import h5py
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras.layers import Activation, Dropout, Conv2DTranspose, Input, Conv2D, BatchNormalization, MaxPool2D
-from tensorflow.python.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.python.keras.layers import (
+    Activation, Dropout, Conv2DTranspose, Input, Conv2D, 
+    BatchNormalization, MaxPool2D, Concatenate, Flatten, 
+    Reshape, Dense)
+from tensorflow.python.keras.callbacks import (
+    EarlyStopping, ReduceLROnPlateau)
 from tensorflow.python.keras.backend import set_session
-from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.models import Model, load_model
 
 
 class getModel(object):
@@ -76,56 +80,56 @@ class SegNet(getModel):
         # Create and compile the model SegNet
         self.model = self.create_model()
 
-    def add_conv_layer(self, input, n_filters, flt_sz=5, stride=1, n_conv=2):
+    def add_conv_layer(self, input, n_filters, flt_sz=5, stride=1, n_conv=2, num=0):
 
         xs = [input]
         for i in range(n_conv):
-            dropout = Dropout(0.1)(xs[-1])
+            dropout = Dropout(0.1)(xs[-1], name=f'dropout_{i}_{num}_segnet')
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride,
-                            padding="same")(dropout)
+                            padding="same", name=f'conv2d_{i}_{num}_segnet')(dropout)
 
-            output = BatchNormalization()(output)
-            output = Activation('relu')(output)
+            output = BatchNormalization(name=f'bn_{i}_{num}_segnet')(output)
+            output = Activation('relu', name=f'relu_{i}_{num}_segnet')(output)
             xs.append(output)
 
-        output = MaxPool2D()(xs[-1])
+        output = MaxPool2D(name=f'maxpool_{num}')(xs[-1])
 
         return output
 
-    def add_deconv_layer(self, input, n_filters, flt_sz=5, strides=2, n_conv=3, last=False):
+    def add_deconv_layer(self, input, n_filters, flt_sz=5, strides=2, n_conv=3, last=False, num=0):
 
         xs = [input]
         output = Conv2DTranspose(filters=n_filters, kernel_size=flt_sz,
-                                 strides=strides, padding='same')(input)
+                                 strides=strides, padding='same', name=f'conv2tranpose_{num}_segnet')(input)
         xs.append(output)
 
         for i in range(n_conv):
-            dropout = Dropout(0.1)(xs[-1])
+            dropout = Dropout(0.1, name='dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
-                            padding="same")(dropout)
-            output = BatchNormalization()(output)
+                            padding="same", name=f'conv2d_{i}_{num}_segnet')(dropout)
+            output = BatchNormalization(name=f'bn_{i}_{num}_segnet')(output)
 
             if (last and i == n_conv - 1):
-                output = Activation('sigmoid')(output)
+                output = Activation('sigmoid', name=f'sigmoid_{i}_{num}_segnet')(output)
             else:
-                output = Activation('relu')(output)
+                output = Activation('relu', name=f'relu_{i}_{num}_segnet')(output)
 
             xs.append(output)
 
         return xs[-1]
 
     def create_model(self):
-        self.input = Input(self.input_shape)
-        layer_1 = self.add_conv_layer(self.input, n_conv=2, n_filters=20)
-        layer_2 = self.add_conv_layer(layer_1, n_conv=2, n_filters=40)
-        layer_3 = self.add_conv_layer(layer_2, n_conv=3, n_filters=80)
-        layer_4 = self.add_conv_layer(layer_3, n_conv=3, n_filters=100)
+        self.input = Input(self.input_shape, name="Input_segnet")
+        layer_1 = self.add_conv_layer(self.input, n_conv=2, n_filters=20, num=1)
+        layer_2 = self.add_conv_layer(layer_1, n_conv=2, n_filters=40, num=2)
+        layer_3 = self.add_conv_layer(layer_2, n_conv=3, n_filters=80, num=3)
+        layer_4 = self.add_conv_layer(layer_3, n_conv=3, n_filters=100, num=4)
 
-        deconv_3 = self.add_deconv_layer(layer_4, n_conv=3, n_filters=80)
-        deconv_2 = self.add_deconv_layer(deconv_3, n_conv=3, n_filters=40)
-        deconv_1 = self.add_deconv_layer(deconv_2, n_conv=2, n_filters=20)
+        deconv_3 = self.add_deconv_layer(layer_4, n_conv=3, n_filters=80, num=3)
+        deconv_2 = self.add_deconv_layer(deconv_3, n_conv=3, n_filters=40, num=2)
+        deconv_1 = self.add_deconv_layer(deconv_2, n_conv=2, n_filters=20, num=1)
         output = self.add_deconv_layer(
-            deconv_1, n_conv=2, n_filters=1, last=True)
+            deconv_1, n_conv=2, n_filters=1, last=True, num=0)
 
         model = Model(self.input, output)
         model.summary()
@@ -362,6 +366,92 @@ class ResUNet():
         tf.keras.models.save_model(self.model, filepath=file_name)
 
         return self
+
+
+class CombinedModel(getModel):
+    def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
+                 batch_size=32, model_name='CombinedModels.h5'):
+        self.lr = lr
+        self.input_shape = input_shape
+        getModel.__init__(self, save_folder, epochs,
+                       verbose, batch_size, model_name)
+        self.model = self.create_model()
+    
+    def train(self, X_train, Y_train, X_valid, Y_valid):
+
+        config = tf.ConfigProto()
+        # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+        sess = tf.Session(config=config)
+        # set this TensorFlow session as the default session for Keras
+        set_session(sess)
+
+        early = EarlyStopping(monitor="val_acc", mode="max",
+                              patience=10, verbose=self.verbose)
+        redonplat = ReduceLROnPlateau(
+            monitor="val_acc", mode="max", patience=5, verbose=self.verbose)
+
+        history = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
+                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
+
+        training_loss = history.history['loss']
+        val_loss = history.history['val_loss']
+
+        train_curves = {'train': training_loss, 'val': val_loss}
+
+        with open(self.save_folder + 'train_curves.pickle', 'wb') as f:
+            pickle.dump(train_curves, f)
+
+        if not os.path.exists(self.save_folder + 'checkpoint/'):
+            os.makedirs(self.save_folder + 'checkpoint')
+
+        fileName = self.save_folder + 'checkpoint/' + self.model_name
+        tf.keras.models.save_model(self.model, filepath=fileName)
+
+    def predict(self, X):
+        fileName = self.save_folder + 'checkpoint/' + self.model_name
+        if not os.path.isfile(fileName):
+            print("Model not found! Exiting ...")
+            sys.exit(1)
+        self.model = tf.keras.models.load_model(fileName)
+        y_pred = self.model.predict((X, X), batch_size=self.batch_size)
+        y_pred = (y_pred >= 0.5).astype(np.int)
+
+        return y_pred
+
+    def create_model(self):
+        segnet = load_model('./SegNet/checkpoint/SegNet.h5')
+        unet = load_model('./UNet/checkpoint/UNet.h5')
+
+        # make the layers untrainable
+        for layer in segnet.layers:
+            layer.trainable = False
+            layer.__setattr__('name', layer.name + str("_segnet"))
+        
+        for layer in unet.layers:
+            layer.trainable = False
+            layer.name = layer.name + str("_unet")
+
+        # get ouput layers
+        segnet_output = segnet.layers[-1].output
+        unet_output = unet.layers[-1].output
+
+        # Merge layers and apply  2D Convolutions 
+        concat = Concatenate(axis=-1)([segnet_output, unet_output])
+        conv2d = Conv2D(1, (5,5), padding='same', activation='relu')(concat)
+        outputs = conv2d
+
+        # get inputs
+        unet_input = unet.inputs[0]
+        segnet_input = segnet.inputs[0]
+
+        model = Model(inputs=[unet_input, segnet_input], outputs=outputs)
+        model.summary()
+
+        import pdb; pdb.set_trace()
+        model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
+                      loss='binary_crossentropy', metrics=['accuracy'])
+
+        return model
 
 
 if __name__ == '__main__':
