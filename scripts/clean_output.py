@@ -12,7 +12,7 @@ This file takes two inputs:
     - the Folder which has all the pred_imgs stored
     - the Folder the cleaned images are written to
 
-for example: python3 script/clean_output.py Combined/ Cleaned/
+for example: python3 scripts/clean_output.py Combined/ Cleaned/
 This will look into the Combined folder for predicted images, clean them up and write them into the "Cleaned"-folder
 
 
