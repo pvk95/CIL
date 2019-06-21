@@ -26,6 +26,22 @@ def getSegImgs(model, X_test, save_folder):
     y_pred = utils.resize_to_test(y_pred)
     utils.getPredImgs(y_pred, file_names, save_folder)
 
+def produceSegmentedImages(model, X_test, save_folder, mode=0):
+    if mode == 0:
+        produce_patches = utils.resize_to_tr
+        reconstruct_from_patches = utils.resize_to_test
+    elif mode == 1:
+        produce_patches = utils.produce_patch
+        reconstruct_from_patches = utils.reconstruct_patches
+    elif mode == 2:
+        pass
+
+    X_patches = produce_patches(X_test)
+    y_patches = model.predict(X_patches)
+    y_pred = reconstruct_from_patches(y_patches)
+    utils.getPredImgs(y_pred, file_names, save_folder)
+    
+
 
 def getValid(model, X_valid):
     y_valid = model.predict(X_valid)

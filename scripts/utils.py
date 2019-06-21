@@ -194,6 +194,31 @@ def resize_to_test(X):
     resize_imgs = np.stack(resize_imgs, axis=0)
     return resize_imgs
 
+def produce_patch(X_test):
+    patches = []
+    for image in X_test:
+        for x in range(0, 209, 52):
+            for y in range(0, 209, 52):
+                patch = image[x:x+400, y:y+400]
+                patches.append(patch)
+    return patches
+
+def reconstruct_patch(X_patches):
+    chunks = np.split(X_patches, X_patches.shape[0]//25)
+    images = []
+    for chunk in chunks:
+        aggregate_image = np.empty((608,608,25))
+        aggregate_image[:,:,:] = np.nan
+        counter = 0
+        for x in range(0, 209, 52):
+            for y in range(0, 209, 52):
+                aggregate_image[x: x+400, y:y+400,y,counter] = chunk[counter]
+                counter +=1
+        image = np.nanmedian(aggregate_image, axis=-1) 
+        images.append(image)
+    return images
+
+
 
 if __name__ == '__main__':
     X, y, X_test, file_names = getData()
