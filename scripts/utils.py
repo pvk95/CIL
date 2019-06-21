@@ -219,6 +219,34 @@ def reconstruct_patches(X_patches):
         images.append(image)
     return images
 
+def use_padding(X_test):
+    patches = []
+    for image in X_test:
+        image_pad = np.pad(image, (192, 192, 0), 'constant', constant_values=(0, 0, 0))
+        for x in range(2):
+            for y in range(2):
+                patch = image_pad[x*400:(x+1)*400, y*400:(y+1)*400]
+                patches.append(patch)
+    return patches
+
+
+def from_padding(X_patches):
+    chunks = np.split(X_patches, X_patches.shape[0]//4)
+    images = []
+    for chunk in chunks:
+        aggregate_image = np.empty((800,800))
+        aggregate_image[:,:] = np.nan
+        counter = 0
+        for x in range(2):
+            for y in range(2):
+                aggregate_image[x*400: (x+1)*400, y*400:(y+1)*400] = chunk[counter,:,:0]
+                counter += 1
+        image = aggregate_image[192:592, 192:592]
+        image = (image >= 0.5).astype(np.int)
+        images.append(image)
+    return images
+
+
 
 
 if __name__ == '__main__':

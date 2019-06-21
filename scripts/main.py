@@ -37,7 +37,8 @@ def produceSegmentedImages(model, X_test, save_folder, mode=0):
         reconstruct_from_patches = utils.reconstruct_patches
     elif mode == 2:
         # pad image to get original
-        pass
+        produce_patches = utils.use_padding
+        reconstruct_from_patches = utils.from_padding
 
     X_patches = produce_patches(X_test)
     y_patches = model.predict(X_patches)
