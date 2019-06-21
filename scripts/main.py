@@ -28,16 +28,20 @@ def getSegImgs(model, X_test, save_folder):
 
 def produceSegmentedImages(model, X_test, save_folder, mode=0):
     if mode == 0:
+        # Resize image
         produce_patches = utils.resize_to_tr
         reconstruct_from_patches = utils.resize_to_test
     elif mode == 1:
+        # Use patces to recreate image
         produce_patches = utils.produce_patch
         reconstruct_from_patches = utils.reconstruct_patches
     elif mode == 2:
+        # pad image to get original
         pass
 
     X_patches = produce_patches(X_test)
     y_patches = model.predict(X_patches)
+    print(y_patches.shape)
     y_pred = reconstruct_from_patches(y_patches)
     utils.getPredImgs(y_pred, file_names, save_folder)
     

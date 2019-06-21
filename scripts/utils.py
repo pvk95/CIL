@@ -203,7 +203,7 @@ def produce_patch(X_test):
                 patches.append(patch)
     return patches
 
-def reconstruct_patch(X_patches):
+def reconstruct_patches(X_patches):
     chunks = np.split(X_patches, X_patches.shape[0]//25)
     images = []
     for chunk in chunks:
