@@ -39,10 +39,13 @@ def produceSegmentedImages(model, X_test, save_folder, mode=0):
         # pad image to get original
         pass
 
+    print('step 1')
     X_patches = produce_patches(X_test)
+    print('step 2')
     y_patches = model.predict(X_patches)
-    print(y_patches.shape)
+    print('step 3')
     y_pred = reconstruct_from_patches(y_patches)
+    print('step 4')
     utils.getPredImgs(y_pred, file_names, save_folder)
     
 
