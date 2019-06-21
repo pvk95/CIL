@@ -42,6 +42,7 @@ def produceSegmentedImages(model, X_test, save_folder, mode=0):
     X_patches = produce_patches(X_test)
     y_patches = model.predict(X_patches)
     y_pred = reconstruct_from_patches(y_patches)
+    y_pred = np.array(y_pred)
     utils.getPredImgs(y_pred, file_names, save_folder)
     
 
