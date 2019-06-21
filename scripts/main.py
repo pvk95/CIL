@@ -157,7 +157,7 @@ if __name__ == '__main__':
     if (mode == 1):
         model.train(X_train,y_train,X_valid,y_valid)
         getValid(model,X_valid)
-        getSegImgs(model,X_test,save_folder)
+        produceSegmentedImages(model, X_test, save_folder, 0)
     elif (mode == 2):
         model.train(X_train, y_train, X_valid, y_valid)
         getValid(model,X_valid)
