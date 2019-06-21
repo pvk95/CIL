@@ -70,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('-sz_tr', default=150, help='No. of samples data aug', type=int)
     parser.add_argument('-arch', default='unet', help='Which architecture? ', type=str)
     parser.add_argument('-sub_sample',default=0,help='Whether to sub sample',type=int)
+    parser.add_argument('-rec_mode', default=0, help='What type of image reconstrucitons is used', type=int)
     # -arch == unet or -arch ==segnet
 
     # mode = 1 train,valid and test
@@ -98,6 +99,7 @@ if __name__ == '__main__':
     sz_tr = args.sz_tr
     arch = args.arch
     sub_sample = not not args.sub_sample
+    rec_mode = args.rec_mode
 
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -161,7 +163,7 @@ if __name__ == '__main__':
     if (mode == 1):
         model.train(X_train,y_train,X_valid,y_valid)
         getValid(model,X_valid)
-        produceSegmentedImages(model, X_test, save_folder, 0)
+        produceSegmentedImages(model, X_test, save_folder, rec_mode)
     elif (mode == 2):
         model.train(X_train, y_train, X_valid, y_valid)
         getValid(model,X_valid)

@@ -212,7 +212,7 @@ def reconstruct_patches(X_patches):
         counter = 0
         for x in range(0, 209, 52):
             for y in range(0, 209, 52):
-                aggregate_image[x: x+400, y:y+400,y,counter] = chunk[counter]
+                aggregate_image[x: x+400, y:y+400,counter] = chunk[counter]
                 counter +=1
         image = np.nanmedian(aggregate_image, axis=-1) 
         images.append(image)
