@@ -215,6 +215,7 @@ def reconstruct_patches(X_patches):
                 aggregate_image[x: x+400, y:y+400,counter] = chunk[counter,:,:,0]
                 counter +=1
         image = np.nanmedian(aggregate_image, axis=-1) 
+        image = (image >=0.5).astype(np.int)
         images.append(image)
     return images
 
