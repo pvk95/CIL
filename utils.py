@@ -67,9 +67,10 @@ def image_patches(img, h=16, w=16):
 
 
 def load_data(h=16, w=16):
+    print("Loading data...")
     fn = [f for _, _, f in os.walk(IMG_PATH)][0]
 
-    print("Loading images and ground truths")
+    print("\tLoading images and ground truths")
     images, gts = [], []
     for f in fn:
         img = mpimg.imread(IMG_PATH + f)
@@ -78,14 +79,14 @@ def load_data(h=16, w=16):
         gts.append(gt)
 
     n = len(images)
-    print("Loaded", n, "images and", len(gts), "ground truths")
+    print("\tLoaded", n, "images and", len(gts), "ground truths")
     assert n == len(gts), "no. of images not equal to ground truths"
 
     img_height = images[0].shape[0]
     img_width = images[0].shape[1]
     no_image_patches = (img_height * img_width)//(h*w)
-    print("Image dimensions WxH: %dx%d" % (img_width, img_height))
-    print("%d patches of size %dx%d per image" %
+    print("\tImage dimensions WxH: %dx%d" % (img_width, img_height))
+    print("\t%d patches of size %dx%d per image" %
           (no_image_patches, w, h))
     assert img_height == gts[0].shape[0] and img_width == gts[0].shape[1],\
         ("Image dimensions don't match ground truth")
@@ -100,4 +101,5 @@ def load_data(h=16, w=16):
     X = np.asarray(X)
     y = np.asarray(y)
 
+    print("\tData loaded.", "X has shape", X.shape, "y has shape", y.shape)
     return X, y
