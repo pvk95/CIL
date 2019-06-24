@@ -154,3 +154,34 @@ class BasicCNN(Base):
                       loss=self.config.loss,
                       metrics=["acc"])
         return model
+
+
+class BasicFCN(Base):
+    def __init__(self, config=None, model_name='BasicFCN'):
+        super(BasicFCN, self).__init__(config=config, model_name=model_name)
+
+        self.model = self.build_model()
+
+    def build_model(self):
+        inp = keras.Input(shape=(self.config.patch_height,
+                                 self.config.patch_width, 3))
+
+        x = keras.layers.Conv2D(8, 3, kernel_initializer='glorot_normal')(inp)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.PReLU()(x)
+        x = keras.layers.MaxPool2D()(x)
+
+        x = keras.layers.Conv2D(16, 3, kernel_initializer='glorot_normal')(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.PReLU()(x)
+        x = keras.layers.MaxPool2D()(x)
+
+        x = keras.layers.Conv2D(2, 1, kernel_initializer='glorot_normal',
+                                activation='softmax')(x)
+        x = keras.layers.GlobalAveragePooling2D()(x)
+
+        model = keras.Model(inp, x, name=self.name)
+        model.compile(optimizer=self.config.optimizer,
+                      loss=self.config.loss,
+                      metrics=["acc"])
+        return model

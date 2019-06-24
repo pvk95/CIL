@@ -36,8 +36,11 @@ X_train, X_valid, Y_train, Y_valid = train_test_split(X, y,
 
 conf = Config(epochs=1000, patience=30,
               use_class_weights=True, batch_size=10000)
-basic_cnn = BasicCNN(config=conf)
-basic_cnn.train(X_train, Y_train, X_valid, Y_valid)
+basic_fcn = BasicFCN(config=conf)
+basic_fcn.train(X_train, Y_train, X_valid, Y_valid)
+
+# basic_cnn = BasicCNN(config=conf)
+# basic_cnn.train(X_train, Y_train, X_valid, Y_valid)
 
 
 # orig, rec = reconstruct_gt(22, PATCH_SIZE, PATCH_SIZE, plot=True)
