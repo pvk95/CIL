@@ -402,6 +402,8 @@ class CombinedModel(getModel):
         # Train on the frozen models
         history = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
                                  batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
+
+        print("\nTraining on frozen model finished\n")
         
         # Unfreeze all the layers 
         for layer in self.model.layers:
