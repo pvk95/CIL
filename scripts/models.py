@@ -399,13 +399,21 @@ class CombinedModel(getModel):
         # set this TensorFlow session as the default session for Keras
         # set_session(sess)
 
-        early = EarlyStopping(monitor="val_acc", mode="max",
-                              patience=10, verbose=self.verbose)
-        redonplat = ReduceLROnPlateau(
-            monitor="val_acc", mode="max", patience=5, verbose=self.verbose)
-
+        # Train on the frozen models
         history = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
                                  batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
+        
+        # Unfreeze all the layers 
+        for layer in self.model.layers:
+            layer.trainable = True
+        
+        self.model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
+                           loss='binary_crossentropy', metrics=['accuracy'])
+        
+        # Train on the unfrozen layers
+        history1 = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_vali, X_valid), Y_valid),
+                                  batch_size=self.batch_size, verbose=self.verbose, epochs=50)
+
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
