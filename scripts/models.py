@@ -31,7 +31,7 @@ class getModel(object):
         # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
         #sess = tf.Session(config=config)
         # set this TensorFlow session as the default session for Keras
-        #set_session(sess)
+        # set_session(sess)
 
         early = EarlyStopping(monitor="val_acc", mode="max",
                               patience=10, verbose=self.verbose)
@@ -382,6 +382,7 @@ class CombinedModel(getModel):
     This model combines an already saved UNet and an already saved SegNet and uses an Convolution
     to combined both models.
     '''
+
     def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
                  batch_size=32, model_name='CombinedModel.h5'):
         self.lr = lr
@@ -396,7 +397,7 @@ class CombinedModel(getModel):
         # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
         #sess = tf.Session(config=config)
         # set this TensorFlow session as the default session for Keras
-        #set_session(sess)
+        # set_session(sess)
 
         early = EarlyStopping(monitor="val_acc", mode="max",
                               patience=10, verbose=self.verbose)
@@ -448,7 +449,8 @@ class CombinedModel(getModel):
 
         # Merge layers and apply  2D Convolutions
         concat = Concatenate(axis=-1)([segnet_output, unet_output])
-        conv2d = Conv2D(1, (5, 5), padding='same', activation='relu', name="conv2d_last")(concat)
+        conv2d = Conv2D(1, (5, 5), padding='same',
+                        activation='relu', name="conv2d_last")(concat)
         outputs = conv2d
 
         # get inputs
@@ -461,6 +463,73 @@ class CombinedModel(getModel):
         model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
                       loss='binary_crossentropy', metrics=['accuracy'])
 
+        return model
+
+
+class BaseLine(getModel):
+    def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
+                 batch_size=32, deepness=4, model_name='Baseline.h5'):
+
+        # Model specific params
+        self.deepness = deepness
+        self.lr = lr
+        self.input_shape = input_shape
+        getModel.__init__(self, save_folder, epochs, 
+                          verbose, batch_size, model_name)
+
+        # Create and compile model UNet
+        self.model = self.create_model()
+
+    def create_model(self):
+        '''
+        This models is basically unet without any skip connections
+        '''
+        self.input = Input(self.input_shape)
+
+        # Convolve downwards
+        inp = self.input
+        for x in range(self.deepness):
+            filters = 2 ** (6 + 3)
+            conv1 = keras.layers.Conv2D(
+                filters, 3, activation='relu', padding='same', name=f'down_conv2d_1_{x}_baseline'
+            )(inp)
+            conv2 = keras.layers.Conv2D(
+                filters, 3, activation='relu', padding='same', name=f'down_conv2d_2_{x}_baseline'
+            )(conv1)
+            max_pool = keras.layers.MaxPool2D(
+                2, strides=2, name=f'down_maxpool_{x}_baseline'
+            )(conv2)
+            inp = max_pool
+
+        # Lowest layer convolution
+        conv1 = keras.layers.Conv2D(
+            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_1_lowest_baseline'
+        )(inp)
+        conv2 = keras.layers.Conv2D(
+            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_2_lowest_baseline'
+        )(conv2)
+
+        # Convolve upwards
+        inp = conv2
+        for x in range(self.deepness -1 , -1 , -1):
+            filters = 2 ** (6 + 3)
+            up_conv = keras.layers.Conv2DTranspose(
+                filters, 2, 2, name=f'up_conv2t_{x}_baseline'
+            )(inp)
+            conv1 = keras.layers.Conv2D(
+                filters, 3, activation='relu', padding='same', name=f'up_conv2dt_1_{x}_baseline'
+            )(up_conv)
+            conv2 = keras.layers.Conv2D(
+                filters, 3, activation='relu', padding='same', name=f'up_conv2dt_2_{x}_baseline'
+            )(conv1)
+            inp = conv2
+
+        # Create model
+        output = keras.layers.Conv2D(1, 1, activation='sigmoid')(inp)
+        model = keras.models.Model(inputs=self.input, outputs=output)
+        model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
+            loss='binary_crossentropy', metrics=['accuracy']
+        )
         return model
 
 
