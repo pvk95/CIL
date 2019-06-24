@@ -478,7 +478,7 @@ class CombinedModel(getModel):
 
 class BaseLine(getModel):
     def __init__(self, save_folder='./', lr=0.001, input_shape=(400, 400, 3), epochs=30, verbose=1,
-                 batch_size=32, deepness=4, model_name='Baseline.h5'):
+                 batch_size=32, deepness=4, model_name='BaselineUNet.h5'):
 
         # Model specific params
         self.deepness = deepness
@@ -501,22 +501,22 @@ class BaseLine(getModel):
         for x in range(self.deepness):
             filters = 2 ** (6 + 3)
             conv1 = keras.layers.Conv2D(
-                filters, 3, activation='relu', padding='same', name=f'down_conv2d_1_{x}_baseline'
+                filters, 3, activation='relu', padding='same', name=f'down_conv2d_1_{x}_baseline_unet'
             )(inp)
             conv2 = keras.layers.Conv2D(
-                filters, 3, activation='relu', padding='same', name=f'down_conv2d_2_{x}_baseline'
+                filters, 3, activation='relu', padding='same', name=f'down_conv2d_2_{x}_baseline_unet'
             )(conv1)
             max_pool = keras.layers.MaxPool2D(
-                2, strides=2, name=f'down_maxpool_{x}_baseline'
+                2, strides=2, name=f'down_maxpool_{x}_baseline_unet'
             )(conv2)
             inp = max_pool
 
         # Lowest layer convolution
         conv1 = keras.layers.Conv2D(
-            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_1_lowest_baseline'
+            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_1_lowest_baseline_unet'
         )(inp)
         conv2 = keras.layers.Conv2D(
-            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_2_lowest_baseline'
+            2 ** (6 + self.deepness), 3, activation='relu', padding='same', name=f'conv2d_2_lowest_baseline_unet'
         )(conv2)
 
         # Convolve upwards
@@ -524,13 +524,13 @@ class BaseLine(getModel):
         for x in range(self.deepness -1 , -1 , -1):
             filters = 2 ** (6 + 3)
             up_conv = keras.layers.Conv2DTranspose(
-                filters, 2, 2, name=f'up_conv2t_{x}_baseline'
+                filters, 2, 2, name=f'up_conv2t_{x}_baseline_unet'
             )(inp)
             conv1 = keras.layers.Conv2D(
-                filters, 3, activation='relu', padding='same', name=f'up_conv2dt_1_{x}_baseline'
+                filters, 3, activation='relu', padding='same', name=f'up_conv2dt_1_{x}_baseline_unet'
             )(up_conv)
             conv2 = keras.layers.Conv2D(
-                filters, 3, activation='relu', padding='same', name=f'up_conv2dt_2_{x}_baseline'
+                filters, 3, activation='relu', padding='same', name=f'up_conv2dt_2_{x}_baseline_unet'
             )(conv1)
             inp = conv2
 
