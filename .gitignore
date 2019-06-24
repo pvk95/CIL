@@ -8,3 +8,5 @@ ResUNet/
 UNet/
 SegNet/
 plots/
+
+runs/

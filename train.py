@@ -17,7 +17,7 @@ class_weights = class_weight.compute_class_weight('balanced',
                                                   Y_train)
 
 conf = Config(epochs=1000, patience=20,
-              use_class_weights=True, batch_size=1024)
+              use_class_weights=True, batch_size=32)
 basic_cnn = BasicCNN(config=conf)
 basic_cnn.model.summary()
 basic_cnn.train(X_train, Y_train, X_valid, Y_valid)

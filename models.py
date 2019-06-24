@@ -1,8 +1,11 @@
 from tensorflow._api.v1 import keras
+from tensorflow.keras.utils import plot_model
 import tensorflow as tf
 from utils import *
 from datetime import datetime
 from sklearn.utils.class_weight import compute_class_weight
+import os
+import json
 
 
 class Base(object):
@@ -12,20 +15,49 @@ class Base(object):
         self.model = None
         self.history = None
         self.config = config
+        self.model_dir = None
 
         if self.config is None:
             self.config = Config()
 
+        self.init_run()
+
+    def init_run(self):
+        if not os.path.exists(self.config.runs_dir):
+            os.mkdir(self.config.runs_dir)
+        time = datetime.now().strftime("%Y%m%d-%H%M%S")
+        model_dir_name = self.name + "_" + time
+        self.model_dir = os.path.abspath(os.path.join(self.config.runs_dir,
+                                                      model_dir_name))
+        print("Writing to %s\n" % self.model_dir)
+        os.mkdir(self.model_dir)
+        json.dump(self.config.__dict__,
+                  open(os.path.join(self.model_dir, 'config.json'), 'w'),
+                  indent=4,
+                  sort_keys=True)
+
+    def log_model(self):
+        # log model.summary
+        with open(os.path.join(self.model_dir, "summary.txt"), 'w') as fh:
+            self.model.summary(print_fn=lambda x: fh.write(x + '\n'))
+
+        # plot model image
+        plot_model(self.model,
+                   os.path.join(self.model_dir, "model.png"),
+                   show_shapes=True)
+
     def train(self, X_train, Y_train, X_valid, Y_valid):
+        self.log_model()
         self.metrics = F1(valid_data=(X_valid, Y_valid),
                           patience=self.config.patience)
 
-        class_weight = None
         if self.config.use_class_weights:
             class_weight = compute_class_weight('balanced',
                                                 np.unique(Y_train),
                                                 Y_train)
             print("Using class weights for training: %s" % class_weight)
+        else:
+            class_weight = None
 
         self.history = self.model.fit(X_train, Y_train,
                                       batch_size=self.config.batch_size,
@@ -80,8 +112,7 @@ class Base(object):
 
         # plt.show()
         if savefig:
-            time = datetime.now().strftime("%Y%m%d-%H%M%S")
-            fn = self.config.plots_dir + self.name + "_" + time + ".png"
+            fn = os.path.join(self.model_dir, 'plots.png')
             fig.savefig(fn)
 
         return fig

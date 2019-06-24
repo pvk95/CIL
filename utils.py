@@ -20,7 +20,7 @@ class Config(object):
                  epochs=100,
                  optimizer="adam",
                  loss="sparse_categorical_crossentropy",
-                 plots_dir="plots/",
+                 runs_dir="runs",
                  patience=0,
                  patch_width=16,
                  patch_height=16,
@@ -29,11 +29,11 @@ class Config(object):
         self.epochs = epochs
         self.optimizer = optimizer
         self.loss = loss
-        self.plots_dir = plots_dir
         self.patch_width = patch_width
         self.patch_height = patch_height
         self.patience = patience
         self.use_class_weights = use_class_weights
+        self.runs_dir = runs_dir
 
 
 class F1(keras.callbacks.Callback):
