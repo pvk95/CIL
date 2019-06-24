@@ -136,12 +136,12 @@ class BasicCNN(Base):
 
         x = keras.layers.Conv2D(8, 3, kernel_initializer='glorot_normal')(inp)
         x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Activation("relu")(x)
+        x = keras.layers.PReLU()(x)
         x = keras.layers.MaxPool2D()(x)
 
         x = keras.layers.Conv2D(16, 3, kernel_initializer='glorot_normal')(x)
         x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Activation("relu")(x)
+        x = keras.layers.PReLU()(x)
         x = keras.layers.MaxPool2D()(x)
 
         x = keras.layers.Flatten()(x)
