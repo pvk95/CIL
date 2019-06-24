@@ -158,6 +158,9 @@ if __name__ == '__main__':
         model = models.ResUNet(save_folder=save_folder, epochs = args.epochs)
     elif(arch == 'combined'):
         model = models.CombinedModel(save_folder=save_folder, epochs=args.epochs, batch_size=batch_sz)
+    elif(arch == 'baseline'):
+        model = models.BaseLine(save_folder, input_shape=input_shape, deepness=4,
+                                epochs=args.epochs, batch_size=batch_sz)
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)
