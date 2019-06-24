@@ -66,6 +66,9 @@ class Base(object):
                                       callbacks=[self.metrics],
                                       class_weight=class_weight)
 
+        # save plots
+        _ = self.plots(savefig=True)
+
     def plots(self, savefig=False):
         loss = self.history.history['loss']
         val_loss = self.history.history['val_loss']
@@ -96,8 +99,11 @@ class Base(object):
         axs[0, 1].legend()
 
         # F1-Score
+        idx = f1.index(max(f1))
         axs[1, 0].plot(epochs, f1, 'b', label='Validation F1-Score')
-        axs[1, 0].set_title('Validation F1-Score')
+        axs[1, 0].set_title(
+            'Validation F1-Score:%.2f (acc:%.2f)'
+            % (f1[idx], val_acc[idx]))
         axs[1, 0].set_xlabel('Epochs')
         axs[1, 0].set_ylabel('F1-Score')
         axs[1, 0].legend()
@@ -128,19 +134,20 @@ class BasicCNN(Base):
         inp = keras.Input(shape=(self.config.patch_height,
                                  self.config.patch_width, 3))
 
-        x = keras.layers.Conv2D(8, 3)(inp)
+        x = keras.layers.Conv2D(8, 3, kernel_initializer='glorot_normal')(inp)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Activation("relu")(x)
         x = keras.layers.MaxPool2D()(x)
 
-        x = keras.layers.Conv2D(16, 3)(x)
+        x = keras.layers.Conv2D(16, 3, kernel_initializer='glorot_normal')(x)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Activation("relu")(x)
         x = keras.layers.MaxPool2D()(x)
 
         x = keras.layers.Flatten()(x)
-        x = keras.layers.Dropout(rate=0.5)(x)
-        x = keras.layers.Dense(2, activation='softmax')(x)
+        x = keras.layers.Dropout(rate=0.3)(x)
+        x = keras.layers.Dense(2, activation='softmax',
+                               kernel_initializer='glorot_normal')(x)
 
         model = keras.Model(inp, x, name=self.name)
         model.compile(optimizer=self.config.optimizer,

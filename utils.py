@@ -70,11 +70,12 @@ class F1(keras.callbacks.Callback):
         val_predict = np.argmax(preds, axis=-1)
         val_targ = self.validation_data[1]
 
-        _val_f1 = metrics.f1_score(val_targ, val_predict, average='macro')
+        average = 'weighted'
+        _val_f1 = metrics.f1_score(val_targ, val_predict, average=average)
         _val_recall = metrics.recall_score(
-            val_targ, val_predict, average='macro')
+            val_targ, val_predict, average=average)
         _val_precision = metrics.precision_score(
-            val_targ, val_predict, average='macro')
+            val_targ, val_predict, average=average)
         # _val_accuracy = metrics.accuracy_score(val_targ, val_predict)
         # _val_loss = metrics.log_loss(val_targ, preds)
 
@@ -106,7 +107,8 @@ class F1(keras.callbacks.Callback):
 
     def on_train_end(self, logs=None):
         if self.stopped_epoch > 0:
-            print('Epoch %05d: early stopping' % (self.stopped_epoch + 1))
+            print('Epoch %05d: early stopping. Best F1-Score=%f' %
+                  (self.stopped_epoch + 1, self.best))
 
 
 def reconstruct_gt(idx, w=16, h=16, plot=False):
