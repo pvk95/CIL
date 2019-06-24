@@ -166,12 +166,12 @@ class BasicFCN(Base):
         inp = keras.Input(shape=(self.config.patch_height,
                                  self.config.patch_width, 3))
 
-        x = keras.layers.Conv2D(8, 3, kernel_initializer='glorot_normal')(inp)
+        x = keras.layers.Conv2D(16, 3, kernel_initializer='glorot_normal')(inp)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.PReLU()(x)
         x = keras.layers.MaxPool2D()(x)
 
-        x = keras.layers.Conv2D(16, 3, kernel_initializer='glorot_normal')(x)
+        x = keras.layers.Conv2D(32, 3, kernel_initializer='glorot_normal')(x)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.PReLU()(x)
         x = keras.layers.MaxPool2D()(x)
