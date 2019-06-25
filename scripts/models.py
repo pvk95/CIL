@@ -406,7 +406,6 @@ class CombinedModel(getModel):
         print("\nTraining on frozen model finished\n")
         
         # Unfreeze all the layers 
-        '''
         for layer in self.model.layers:
             layer.trainable = True
         
@@ -415,9 +414,8 @@ class CombinedModel(getModel):
         
         # Train on the unfrozen layers
         history1 = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
-                                  batch_size=self.batch_size, verbose=self.verbose, epochs=15)
+                                  batch_size=self.batch_size, verbose=self.verbose, epochs=50)
 
-        '''
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
@@ -461,7 +459,7 @@ class CombinedModel(getModel):
 
         # Merge layers and apply  2D Convolutions
         concat = Concatenate(axis=-1)([segnet_output, unet_output])
-        conv2d = Conv2D(1, (16, 4), padding='same',
+        conv2d = Conv2D(1, (16, 16), padding='same',
                         activation='relu', name="conv2d_last")(concat)
         outputs = conv2d
 
