@@ -8,7 +8,7 @@ from tensorflow import keras
 from tensorflow.keras.layers import (
     Activation, Dropout, Conv2DTranspose, Input, Conv2D,
     BatchNormalization, MaxPool2D, Concatenate, Flatten,
-    Reshape, Dense)
+    Reshape, Dense, SpatialDropout2D)
 from tensorflow.keras.callbacks import (
     EarlyStopping, ReduceLROnPlateau)
 from tensorflow.keras.backend import set_session
@@ -194,7 +194,7 @@ class UNet(getModel):
         return model
 
     def conv_layer(self, filters, inp, num=0):
-        dropout = Dropout(0.1, name=f'down_dropout_{num}_unet')(inp)
+        dropout = SpatialDropout2D(0.1, name=f'down_dropout_{num}_unet')(inp)
         conv1 = keras.layers.Conv2D(
             filters, 3, activation='relu', padding='same', name=f'down_conv2d_1_{num}_unet')(dropout)
         conv2 = keras.layers.Conv2D(
@@ -204,7 +204,7 @@ class UNet(getModel):
         return conv2, max_pool
 
     def upconv_layer(self, filters, inp, skip, num=0):
-        dropout = Dropout(0.1, name=f'up_dropout_{num}_unet')(inp)
+        dropout = SpatialDropout2D(0.1, name=f'up_dropout_{num}_unet')(inp)
         up_conv = keras.layers.Conv2DTranspose(
             filters, 2, 2, name=f'up_conv2dt_{num}_unet')(dropout)
         up_shape = up_conv.shape.as_list()
@@ -406,6 +406,7 @@ class CombinedModel(getModel):
         print("\nTraining on frozen model finished\n")
         
         # Unfreeze all the layers 
+        '''
         for layer in self.model.layers:
             layer.trainable = True
         
@@ -416,6 +417,7 @@ class CombinedModel(getModel):
         history1 = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
                                   batch_size=self.batch_size, verbose=self.verbose, epochs=15)
 
+        '''
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
@@ -459,7 +461,7 @@ class CombinedModel(getModel):
 
         # Merge layers and apply  2D Convolutions
         concat = Concatenate(axis=-1)([segnet_output, unet_output])
-        conv2d = Conv2D(1, (5, 5), padding='same',
+        conv2d = Conv2D(1, (16, 4), padding='same',
                         activation='relu', name="conv2d_last")(concat)
         outputs = conv2d
 

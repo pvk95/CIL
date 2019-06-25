@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
         # apply morphological opneing
         image = image[:,:,0]
-        opened_image = skimage.morphology.opening(image, np.ones((4,4)))
+        opened_image = skimage.morphology.opening(image, np.ones((5,5)))
 
         # create folder if not exists
         new_path = os.path.join(new_folder, 'pred_imgs')
