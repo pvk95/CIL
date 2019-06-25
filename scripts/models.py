@@ -84,7 +84,7 @@ class SegNet(getModel):
 
         xs = [input]
         for i in range(n_conv):
-            dropout = Dropout(0.1, name=f'dropout_{i}_{num}_segnet')(xs[-1])
+            dropout = SpatialDropout2D(0.1, name=f'dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride,
                             padding="same", name=f'conv2d_{i}_{num}_segnet')(dropout)
 
@@ -104,7 +104,7 @@ class SegNet(getModel):
         xs.append(output)
 
         for i in range(n_conv):
-            dropout = Dropout(0.1, name=f'up_dropout_{i}_{num}_segnet')(xs[-1])
+            dropout = SpatialDropout2D(0.1, name=f'up_dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
                             padding="same", name=f'up_conv2d_{i}_{num}_segnet')(dropout)
             output = BatchNormalization(name=f'up_bn_{i}_{num}_segnet')(output)
