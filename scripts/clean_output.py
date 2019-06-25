@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
         # create folder if not exists
         new_path = os.path.join(new_folder, 'pred_imgs')
-        if not os.path.exists(new_folder):
+        if not os.path.exists(new_path):
             os.makedirs(new_path)
 
         # save image

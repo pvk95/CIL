@@ -413,8 +413,8 @@ class CombinedModel(getModel):
                            loss='binary_crossentropy', metrics=['accuracy'])
         
         # Train on the unfrozen layers
-        history1 = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_vali, X_valid), Y_valid),
-                                  batch_size=self.batch_size, verbose=self.verbose, epochs=50)
+        history1 = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
+                                  batch_size=self.batch_size, verbose=self.verbose, epochs=15)
 
 
         training_loss = history.history['loss']
