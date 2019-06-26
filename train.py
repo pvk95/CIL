@@ -1,47 +1,41 @@
-import matplotlib.pyplot as plt
-import tensorflow as tf
-from tensorflow._api.v1 import keras
-from sklearn.model_selection import train_test_split
-from models import *
+import seed
 from utils import *
+from models import *
+from preprocessing import Preprocessing
+from sklearn.feature_extraction import image
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+from PIL import Image
+import glob
+import re
 
 
-def normalize_meanstd(X, axis=(1, 2)):
-    # sample wise: for each image separately
-    print("Standardizing images...")
-    mean = np.mean(X, axis=axis, keepdims=True)
-    var = ((X - mean)**2).mean(axis=axis, keepdims=True)
-    std = np.sqrt(var)
-    print("Images standardized")
-    return (X - mean) / std
+X, y, files = load_data(patches=True)
+
+pre = Preprocessing(standardize=True, samplewise=True)
+X_train, X_valid, y_train, y_valid = pre.split_data(
+    X, y, test_size=0.1, shuffle=True)
 
 
-def normalize_meanstd2(X, axis=0):
-    # feature wise: across the entire training dataset
-    print("Standardizing images...")
-    mean = np.mean(X, axis=axis, keepdims=True)
-    var = ((X - mean)**2).mean(axis=axis, keepdims=True)
-    std = np.sqrt(var)
-    print("Images standardized")
-    return (X - mean) / std
-
-
-X, y = load_data(16, 16)
-X = normalize_meanstd2(X)
-X_train, X_valid, Y_train, Y_valid = train_test_split(X, y,
-                                                      test_size=0.1,
-                                                      shuffle=True,
-                                                      stratify=y)
-
-
-conf = Config(epochs=1000, patience=30,
-              use_class_weights=True, batch_size=10000)
+conf = Config(epochs=1000, patience=50,
+              use_class_weights=True, batch_size=2000)
 basic_fcn = BasicFCN(config=conf)
-basic_fcn.train(X_train, Y_train, X_valid, Y_valid)
-
-# basic_cnn = BasicCNN(config=conf)
-# basic_cnn.train(X_train, Y_train, X_valid, Y_valid)
+basic_fcn.train(X_train, y_train, X_valid, y_valid)
 
 
-# orig, rec = reconstruct_gt(22, PATCH_SIZE, PATCH_SIZE, plot=True)
-# plt.imshow(X[22])
+# Prediction
+X_test, test_files = load_tests()
+X_test2 = pre.transform(X_test)
+X_pred = basic_fcn.predict(X_test2, test_files)
+vis_pred(X_test, X_pred, last_n=False, img_sz=608)
+
+# submission
+
+dir_path = os.path.join(basic_fcn.model_dir, basic_fcn.config.pred_dir)
+pattern = os.path.join(dir_path, "test_*.png")
+submission_filename = os.path.join(dir_path, "submission.csv")
+image_filenames = glob.glob(pattern)
+for image_filename in image_filenames:
+    print(image_filename)
+masks_to_submission(submission_filename, *image_filenames)

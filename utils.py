@@ -1,9 +1,9 @@
 import os
+import glob
 import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from scripts.mask_to_submission import *
 from tensorflow._api.v1 import keras
 import tensorflow as tf
 
@@ -24,7 +24,8 @@ class Config(object):
                  patience=0,
                  patch_width=16,
                  patch_height=16,
-                 use_class_weights=True):
+                 use_class_weights=True,
+                 pred_dir="predictions"):
         self.batch_size = batch_size
         self.epochs = epochs
         self.optimizer = optimizer
@@ -34,97 +35,39 @@ class Config(object):
         self.patience = patience
         self.use_class_weights = use_class_weights
         self.runs_dir = runs_dir
+        self.pred_dir = pred_dir
 
 
-class F1(keras.callbacks.Callback):
-    """Callback that computes the F1-score, precision and recall on validation data and stops training when the F1-score stops improving.
-    """
-
-    def __init__(self, valid_data, patience=0, restore_best_weights=False):
-        super(F1, self).__init__()
-
-        self.validation_data = valid_data
-        # Early Stopping
-        self.patience = patience
-        self.wait = 0
-        self.stopped_epoch = 0
-        self.restore_best_weights = restore_best_weights
-
-    def on_train_begin(self, logs={}):
-        self.val_f1s = []
-        self.val_recalls = []
-        self.val_precisions = []
-        # self.val_accuracies = []
-        # self.val_losses = []
-
-        # Early Stopping
-        self.wait = 0
-        self.stopped_epoch = 0
-        self.best = -np.Inf
-
-    def on_epoch_end(self, epoch, logs=None):
-        if self.validation_data is None:
-            raise RuntimeError('Requires validation_data.')
-
-        preds = np.asarray(self.model.predict(self.validation_data[0]))
-        val_predict = np.argmax(preds, axis=-1)
-        val_targ = self.validation_data[1]
-
-        average = 'weighted'
-        _val_f1 = metrics.f1_score(val_targ, val_predict, average=average)
-        _val_recall = metrics.recall_score(
-            val_targ, val_predict, average=average)
-        _val_precision = metrics.precision_score(
-            val_targ, val_predict, average=average)
-        # _val_accuracy = metrics.accuracy_score(val_targ, val_predict)
-        # _val_loss = metrics.log_loss(val_targ, preds)
-
-        # store in instance
-        self.val_f1s.append(_val_f1)
-        self.val_recalls.append(_val_recall)
-        self.val_precisions.append(_val_precision)
-        # self.val_accuracies.append(_val_accuracy)
-        # self.val_losses.append(_val_loss)
-        print(" - val_f1: % f - val_precision: % f - val_recall % f" %
-              (_val_f1, _val_precision, _val_recall))
-
-        # Early Stopping
-        current = _val_f1
-        if np.greater(current, self.best):
-            self.best = current
-            self.wait = 0
-            if self.restore_best_weights:
-                self.best_weights = self.model.get_weights()
-        else:
-            self.wait += 1
-            if self.wait >= self.patience:
-                self.stopped_epoch = epoch
-                self.model.stop_training = True
-                if self.restore_best_weights:
-                    print('Early Stopping: Restoring model weights \
-                           from the end of the best epoch.')
-                    self.model.set_weights(self.best_weights)
-
-    def on_train_end(self, logs=None):
-        if self.stopped_epoch > 0:
-            print('Epoch %05d: early stopping. Best F1-Score=%f' %
-                  (self.stopped_epoch + 1, self.best))
+def img2rgb(img):
+    rimg = img - np.min(img)
+    rimg = (rimg / np.max(rimg) * 255).round().astype(np.uint8)
+    return rimg
 
 
-def reconstruct_gt(idx, w=16, h=16, plot=False):
+def vis_pred(X, X_preds, n=5, last_n=False, img_sz=400, sz=16):
+    image_orig = patches2images(X, img_sz)
+    for show in range(n):
+        fac = -1 if last_n else 1
+        fig, ax = plt.subplots(1, 2, figsize=(5, 5))
+        ax[0].imshow(img2rgb(image_orig[show*fac]))
+        ax[0].set_title("Orig image")
+        ax[1].imshow(X_preds[show*fac], cmap=plt.cm.binary_r)
+        ax[1].set_title("Prediction")
+
+
+def reconstruct_gt(idx, sz=16, plot=False):
     img_name = "satImage_%.3d.png" % idx
     fn = GT_PATH + img_name
     assert os.path.isfile(fn), \
         "Image file %s doesn't exist" % fn
 
     orig_img = mpimg.imread(fn)
-    img_height = orig_img.shape[0]
-    img_width = orig_img.shape[1]
+    img_sz = orig_img.shape[0]
 
-    patches = image_patches(orig_img)
+    patches = __get_patches(orig_img)
     labels = [patch_to_label(patch) for patch in patches]
-
-    rec_img = image_from_labels(labels, img_height, img_width, h, w)
+    labels = np.asarray(labels)
+    rec_img = patches2images(labels, img_sz, sz)
 
     if plot:
         fig, (orig_ax, rec_ax) = plt.subplots(1, 2, figsize=(10, 10))
@@ -134,46 +77,121 @@ def reconstruct_gt(idx, w=16, h=16, plot=False):
 
         rec_ax.set_axis_off()
         rec_ax.set_title('Reconstructed Ground Truth')
-        rec_ax.imshow(rec_img, cmap=plt.cm.binary_r)
+        rec_ax.imshow(rec_img[0], cmap=plt.cm.binary_r)
         plt.show()
 
-    return orig_img, rec_img
+    return orig_img, rec_img[0]
 
 
-def image_from_labels(labels, img_height, img_width, w=16, h=16):
-    img = np.zeros([img_width, img_height])
-    idx = 0
-    for i in range(0, img_height, h):
-        for j in range(0, img_width, w):
-            if labels[idx] > 0.5:  # road
-                img[i:i+h, j:j+w] = 1
-            else:
-                img[i:i+h, j:j+w] = 0
-            idx = idx + 1
-    return img
+def images2patches(images, sz=16, labels=False):
+    img_sz = images[0].shape[0]
+    patches_per_image = (img_sz//sz)**2
+    print("\tImage dimensions WxH: %dx%d" % (img_sz, img_sz))
+    print("\t%d patches of size %dx%d per image" %
+          (patches_per_image, sz, sz))
+
+    n = len(images)
+    X = []
+    for i in range(n):
+        img_p = __get_patches(images[i], sz)
+        if labels:
+            X += [patch_to_label(patch) for patch in img_p]
+        else:
+            X += img_p
+    X = np.asarray(X)
+    return X
 
 
-def image_patches(img, h=16, w=16):
+def __get_patches(img, sz=16):
     list_patches = []
     img_height = img.shape[0]
     img_width = img.shape[1]
-    for i in range(0, img_height, h):
-        for j in range(0, img_width, w):
+    for i in range(0, img_height, sz):
+        for j in range(0, img_width, sz):
             if len(img.shape) < 3:
-                im_patch = img[i:i+h, j:j+w]
+                im_patch = img[i:i+sz, j:j+sz]
             else:
-                im_patch = img[i:i+h, j:j+w, :]
+                im_patch = img[i:i+sz, j:j+sz, :]
             list_patches.append(im_patch)
     return list_patches
 
 
-def load_data(h=16, w=16):
+# def image_from_labels(labels, img_height, img_width, w=16, h=16):
+#     # not needed anymore.. patches2images accomplishes the same
+#     img = np.zeros([img_width, img_height])
+#     idx = 0
+#     for i in range(0, img_height, h):
+#         for j in range(0, img_width, w):
+#             if labels[idx] > 0.5:  # road
+#                 img[i:i+h, j:j+w] = 1
+#             else:
+#                 img[i:i+h, j:j+w] = 0
+#             idx = idx + 1
+#     return img
+
+
+def patches2images(patches, img_sz=400, sz=16):
+    ppi = (img_sz//sz)**2
+    total_images = patches.shape[0]//ppi
+    rec = []
+    for i in range(total_images):
+        img = __get_image(patches[i*ppi:i*ppi+ppi], img_sz, sz)
+        rec.append(img)
+    return np.asarray(rec)
+
+
+def __get_image(patches, img_sz=400, sz=16):
+    cols = img_sz//sz
+    is_gt = len(patches[0].shape) < 3
+    if is_gt:
+        rec = np.zeros((img_sz, img_sz))
+    else:
+        rec = np.zeros((img_sz, img_sz, 3))
+    for i in range(0, cols):
+        for j in range(0, cols):
+            ii = i*sz
+            jj = j*sz
+            if is_gt:
+                rec[ii:ii+sz, jj:jj+sz] = patches[i*cols+j]
+            else:
+                rec[ii:ii+sz, jj:jj+sz, :] = patches[i*cols+j]
+    return rec
+
+
+def load_tests(sz=16, patches=True):
     print("Loading data...")
-    fn = [f for _, _, f in os.walk(IMG_PATH)][0]
+    fn = [f for _, _, f in os.walk(TEST_PATH)][0]
+
+    print("\tLoading test images")
+    images = []
+    for f in fn:
+        img = mpimg.imread(TEST_PATH + f)
+        images.append(img)
+
+    n = len(images)
+    print("\tLoaded", n, "test images")
+
+    img_sz = images[0].shape[0]
+    patches_per_image = (img_sz//sz)**2
+    print("\tImage dimensions WxH: %dx%d" % (img_sz, img_sz))
+    print("\t%d patches of size %dx%d per image" % (patches_per_image, sz, sz))
+
+    if patches:
+        X = images2patches(images, sz)
+    else:
+        X = np.asarray(images)
+
+    print("Data loaded.", "X has shape", X.shape)
+    return X, fn
+
+
+def load_data(sz=16, patches=True):
+    print("Loading data...")
+    files = [f for _, _, f in os.walk(IMG_PATH)][0]
 
     print("\tLoading images and ground truths")
     images, gts = [], []
-    for f in fn:
+    for f in files:
         img = mpimg.imread(IMG_PATH + f)
         gt = mpimg.imread(GT_PATH + f)
         images.append(img)
@@ -183,29 +201,55 @@ def load_data(h=16, w=16):
     print("\tLoaded", n, "images and", len(gts), "ground truths")
     assert n == len(gts), "no. of images not equal to ground truths"
 
-    img_height = images[0].shape[0]
-    img_width = images[0].shape[1]
-    no_image_patches = (img_height * img_width)//(h*w)
-    print("\tImage dimensions WxH: %dx%d" % (img_width, img_height))
-    print("\t%d patches of size %dx%d per image" %
-          (no_image_patches, w, h))
-    assert img_height == gts[0].shape[0] and img_width == gts[0].shape[1],\
-        ("Image dimensions don't match ground truth")
+    if patches:
+        X = images2patches(images, sz)
+        y = images2patches(gts, sz, True)
+        c1 = y.sum()     # roads
+        c0 = y.shape[0]-c1  # background
 
-    X, y = [], []
-    for i in range(n):
-        img_p = image_patches(images[i], h, w)
-        gt_p = image_patches(gts[i], h, w)
-        X += img_p
-        y += [patch_to_label(patch) for patch in gt_p]
-
-    X = np.asarray(X)
-    y = np.asarray(y)
-
-    c1 = sum(y)     # roads
-    c0 = len(y)-c1  # background
-
-    print("\tNumber of data points per class: background=%s road=%s" % (c0, c1))
+        print("\tNumber of images per class: background=%s road=%s" % (c0, c1))
+    else:
+        X = np.asarray(images)
+        y = np.asarray(gts)
 
     print("Data loaded.", "X has shape", X.shape, "y has shape", y.shape)
-    return X, y
+    return X, y, files
+
+
+########################################################################
+# COPIED FROM mask_to_submission.py with slight modificatoin to regexp #
+########################################################################
+# percentage of pixels > 1 required to assign a foreground label to a patch
+foreground_threshold = 0.25
+
+# assign a label to a patch
+
+
+def patch_to_label(patch):
+    df = np.mean(patch)
+    if df > foreground_threshold:
+        return 1
+    else:
+        return 0
+
+
+def mask_to_submission_strings(image_filename):
+    """Reads a single image and outputs the strings that should go into the submission file"""
+    img_number = int(re.search(r"(\d+).png", image_filename).group(1))
+    im = mpimg.imread(image_filename)
+    im = im.astype(np.int)
+    patch_size = 16
+    for j in range(0, im.shape[1], patch_size):
+        for i in range(0, im.shape[0], patch_size):
+            patch = im[i:i + patch_size, j:j + patch_size]
+            label = patch_to_label(patch)
+            yield("{:03d}_{}_{},{}".format(img_number, j, i, label))
+
+
+def masks_to_submission(submission_filename, *image_filenames):
+    """Converts images into a submission file"""
+    with open(submission_filename, 'w') as f:
+        f.write('Id,Prediction\n')
+        for fn in image_filenames[0:]:
+            f.writelines('{}\n'.format(s)
+                         for s in mask_to_submission_strings(fn))
