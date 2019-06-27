@@ -460,7 +460,7 @@ class CombinedModel(getModel):
         # Merge layers and apply  2D Convolutions
         concat = Concatenate(axis=-1)([segnet_output, unet_output])
         conv2d = Conv2D(1, (16, 16), padding='same',
-                        activation='relu', name="conv2d_last")(concat)
+                        activation='relu', name="conv2d_last_combined")(concat)
         outputs = conv2d
 
         # get inputs
