@@ -33,13 +33,17 @@ class getModel(object):
         # set this TensorFlow session as the default session for Keras
         # set_session(sess)
 
-        early = EarlyStopping(monitor="val_acc", mode="max",
-                              patience=10, verbose=self.verbose)
-        redonplat = ReduceLROnPlateau(
-            monitor="val_acc", mode="max", patience=5, verbose=self.verbose)
+        # Create checkpoint folder
+        if not os.path.exists(self.save_folder + 'checkpoint/'):
+            os.makedirs(self.save_folder + 'checkpoint')
+
+        # Save best model
+        model_checkpoint = ModelCheckpoint(
+            self.save_folder + 'checkpoint/' + self.model_name, monitor='val_acc', save_best_only=True, verbose=1)
+        callbacks = [model_checkpoint]
 
         history = self.model.fit(x=X_train, y=Y_train, validation_data=(X_valid, Y_valid),
-                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
+                                 batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs, callbacks=callbacks)
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
@@ -49,8 +53,6 @@ class getModel(object):
         with open(self.save_folder + 'train_curves.pickle', 'wb') as f:
             pickle.dump(train_curves, f)
 
-        if not os.path.exists(self.save_folder + 'checkpoint/'):
-            os.makedirs(self.save_folder + 'checkpoint')
 
         fileName = self.save_folder + 'checkpoint/' + self.model_name
         tf.keras.models.save_model(self.model, filepath=fileName)
