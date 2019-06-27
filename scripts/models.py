@@ -10,7 +10,7 @@ from tensorflow.keras.layers import (
     BatchNormalization, MaxPool2D, Concatenate, Flatten,
     Reshape, Dense, SpatialDropout2D)
 from tensorflow.keras.callbacks import (
-    EarlyStopping, ReduceLROnPlateau)
+    EarlyStopping, ReduceLROnPlateau, ModelCheckpoint)
 from tensorflow.keras.backend import set_session
 from tensorflow.keras.models import Model, load_model
 
@@ -84,7 +84,8 @@ class SegNet(getModel):
 
         xs = [input]
         for i in range(n_conv):
-            dropout = SpatialDropout2D(0.1, name=f'dropout_{i}_{num}_segnet')(xs[-1])
+            dropout = SpatialDropout2D(
+                0.1, name=f'dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=stride,
                             padding="same", name=f'conv2d_{i}_{num}_segnet')(dropout)
 
@@ -104,7 +105,8 @@ class SegNet(getModel):
         xs.append(output)
 
         for i in range(n_conv):
-            dropout = SpatialDropout2D(0.1, name=f'up_dropout_{i}_{num}_segnet')(xs[-1])
+            dropout = SpatialDropout2D(
+                0.1, name=f'up_dropout_{i}_{num}_segnet')(xs[-1])
             output = Conv2D(filters=n_filters, kernel_size=(flt_sz, flt_sz), strides=1,
                             padding="same", name=f'up_conv2d_{i}_{num}_segnet')(dropout)
             output = BatchNormalization(name=f'up_bn_{i}_{num}_segnet')(output)
@@ -404,18 +406,24 @@ class CombinedModel(getModel):
                                  batch_size=self.batch_size, verbose=self.verbose, epochs=self.epochs)
 
         print("\nTraining on frozen model finished\n")
-        
-        # Unfreeze all the layers 
+
+        # Unfreeze all the layers
         for layer in self.model.layers:
             layer.trainable = True
-        
+
         self.model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
                            loss='binary_crossentropy', metrics=['accuracy'])
-        
+
+        if not os.path.exists(self.save_folder + 'checkpoint/'):
+            os.makedirs(self.save_folder + 'checkpoint')
+
+        model_checkpoint = ModelCheckpoint(
+            self.save_folder + 'checkpoint/' + self.model_name, monitor='val_accuracy', save_best_only=True)
+        callbacks = [model_checkpoint]
+
         # Train on the unfrozen layers
         history1 = self.model.fit(x=(X_train, X_train), y=Y_train, validation_data=((X_valid, X_valid), Y_valid),
-                                  batch_size=self.batch_size, verbose=self.verbose, epochs=50)
-
+                                  batch_size=self.batch_size, verbose=self.verbose, epochs=50, callbacks=callbacks)
 
         training_loss = history.history['loss']
         val_loss = history.history['val_loss']
@@ -425,11 +433,8 @@ class CombinedModel(getModel):
         with open(self.save_folder + 'train_curves.pickle', 'wb') as f:
             pickle.dump(train_curves, f)
 
-        if not os.path.exists(self.save_folder + 'checkpoint/'):
-            os.makedirs(self.save_folder + 'checkpoint')
-
-        fileName = self.save_folder + 'checkpoint/' + self.model_name
-        tf.keras.models.save_model(self.model, filepath=fileName)
+            #fileName = self.save_folder + 'checkpoint/' + self.model_name
+        #tf.keras.models.save_model(self.model, filepath=fileName)
 
     def predict(self, X):
         fileName = self.save_folder + 'checkpoint/' + self.model_name
@@ -484,7 +489,7 @@ class BaseLine(getModel):
         self.deepness = deepness
         self.lr = lr
         self.input_shape = input_shape
-        getModel.__init__(self, save_folder, epochs, 
+        getModel.__init__(self, save_folder, epochs,
                           verbose, batch_size, model_name)
 
         # Create and compile model UNet
@@ -521,7 +526,7 @@ class BaseLine(getModel):
 
         # Convolve upwards
         inp = conv2
-        for x in range(self.deepness -1 , -1 , -1):
+        for x in range(self.deepness - 1, -1, -1):
             filters = 2 ** (6 + 3)
             up_conv = keras.layers.Conv2DTranspose(
                 filters, 2, 2, name=f'up_conv2t_{x}_baseline_unet'
@@ -538,8 +543,8 @@ class BaseLine(getModel):
         output = keras.layers.Conv2D(1, 1, activation='sigmoid')(inp)
         model = keras.models.Model(inputs=self.input, outputs=output)
         model.compile(optimizer=keras.optimizers.Adam(lr=self.lr),
-            loss='binary_crossentropy', metrics=['accuracy']
-        )
+                      loss='binary_crossentropy', metrics=['accuracy']
+                      )
         return model
 
 
