@@ -418,7 +418,7 @@ class CombinedModel(getModel):
             os.makedirs(self.save_folder + 'checkpoint')
 
         model_checkpoint = ModelCheckpoint(
-            self.save_folder + 'checkpoint/' + self.model_name, monitor='val_accuracy', save_best_only=True)
+            self.save_folder + 'checkpoint/' + self.model_name, monitor='val_acc', save_best_only=True)
         callbacks = [model_checkpoint]
 
         # Train on the unfrozen layers
