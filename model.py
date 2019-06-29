@@ -322,7 +322,7 @@ class FCN8:
             include_top=include_top,
             weights="imagenet",
             input_tensor=None,
-            input_shape=(400, 400, 3),
+            input_shape=(608, 608, 3),
             pooling=None,
             classes=1000,
         )
@@ -365,7 +365,7 @@ class FCN8:
             strides=4,
             use_bias=False,
             kernel_initializer="glorot_normal",
-            output_padding=(2, 2),  # for 400px
+            # output_padding=(2, 2),  # for 400px
             name="fc7_4up",
         )(fc7)
 
