@@ -33,7 +33,7 @@ def one_hot_gt(X):
     return label
 
 
-def load_data(one_hot=True, as_float=True, resize=True, dim=224):
+def load_data(one_hot=True, grey=False, as_float=True, resize=True, dim=224):
     print("Loading data...")
     TRAIN_PATH = "data/training/"
     TEST_PATH = "data/test_images/"
@@ -47,10 +47,15 @@ def load_data(one_hot=True, as_float=True, resize=True, dim=224):
         img = Image.open(IMG_PATH + f)
         gt = Image.open(GT_PATH + f)
         gt = gt.point(lambda p: p > 100 and 255)  # binarize 0/255
+        if grey:
+            img = img.convert("L")
         if resize:
             img = img.resize((dim, dim))
             gt = gt.resize((dim, dim))
         img = np.array(img)
+        if grey:
+            # img = img[:, :, np.newaxis]
+            img = np.stack([img] * 3, axis=-1)
         gt = np.array(gt)
         if as_float:
             img = img.astype("float32")
@@ -66,3 +71,30 @@ def load_data(one_hot=True, as_float=True, resize=True, dim=224):
         y = np.asarray(gts)
     print("Data ready!\n")
     return X, y, file_names
+
+
+def load_test(as_float=True, grey=False, resize=True, dim=224):
+    TEST_PATH = "data/test_images/"
+
+    file_names = [f for _, _, f in os.walk(TEST_PATH)][0]
+    images, gts = [], []
+    print("Loading test images")
+    for f in file_names:
+        img = Image.open(TEST_PATH + f)
+        if grey:
+            img = img.convert("L")
+        if resize:
+            img = img.resize((dim, dim))
+        img = np.array(img)
+        if grey:
+            # img = img[:, :, np.newaxis]
+            img = np.stack([img] * 3, axis=-1)
+        if as_float:
+            img = img.astype("float32")
+            img /= 255.0
+
+        images.append(img)
+
+        X = np.asarray(images)
+    print("Test data ready!\n")
+    return X, file_names

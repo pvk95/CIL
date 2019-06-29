@@ -336,7 +336,7 @@ class FCN8:
 
     def fcn(self, num_class, feature_layers, model_input, dropout=0.5):
         # n = 4096
-        n = 1024
+        n = 512
 
         pool5 = feature_layers[-1]  # pool5
         pool4 = feature_layers[-2]  # pool 4
@@ -504,15 +504,15 @@ class DataGen(Sequence):
             self.X, self.Y = shuffle(self.X, self.Y)
 
     def __augment(self, X, Y):
-        affine = iaa.Affine(
-            rotate=(-180, 180),
-            # shear=(-5, 5),
-            scale=(0.9, 1.1),
-            mode=["reflect"],
-        )
+        affine = iaa.Affine(rotate=(-180, 180), scale=(0.9, 1.1), mode=["reflect"])
 
         seq_both = iaa.Sequential(
-            [iaa.Fliplr(0.5), iaa.Flipud(0.5), iaa.Sometimes(0.5, affine)],
+            [
+                iaa.Fliplr(0.5),
+                iaa.Flipud(0.5),
+                iaa.Sometimes(0.5, affine),
+                # iaa.Sometimes(0.5,iaa.Crop(px=(0, 100))),
+            ],
             random_order=False,
         ).to_deterministic()
 
