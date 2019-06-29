@@ -1,7 +1,7 @@
 from tensorflow._api.v1.keras.models import Model
 from tensorflow._api.v1.keras.models import load_model
-from tensorflow._api.v1.keras.layers import Dropout, Activation, PReLU, Softmax
-from tensorflow._api.v1.keras.layers import Conv2D, Conv2DTranspose
+from tensorflow._api.v1.keras.layers import Dropout, Activation, PReLU, Softmax, ReLU
+from tensorflow._api.v1.keras.layers import Conv2D, Conv2DTranspose, BatchNormalization
 from tensorflow._api.v1.keras.layers import Add
 from tensorflow._api.v1.keras.applications import vgg16
 from tensorflow._api.v1.keras import optimizers
@@ -34,6 +34,7 @@ from imgaug import augmenters as iaa
 class FCN8:
     def __init__(
         self,
+        name="FCN8",
         dropout=0.5,
         batch_size=1,
         epochs=100,
@@ -43,10 +44,10 @@ class FCN8:
         restore=None,  # chkpt folder name
         baseline=None,  # early stopping
         use_multiprocessing=False,  # data gen
-        workers=2,  # data generator
-        train_encoder=True,
+        workers=4,  # data generator
+        tune_level=None,
     ):
-        self.name = "FCN8"
+        self.name = name
         self.epochs = epochs
         self.batch_size = batch_size
         self.loss = loss
@@ -58,7 +59,9 @@ class FCN8:
         self.dropout = dropout
         self.multiprocess = use_multiprocessing
         self.workers = workers
-        self.train_encoder = train_encoder
+        self.X = None
+        self.Y = None
+        self.tune_count = 0
         self.init_run()
         # has to be after init_run(json.dump cannot serialize this)
         if optimizer is None:
@@ -76,6 +79,63 @@ class FCN8:
             src = os.path.join(self.runs_dir, self.restore, checkpoint_name)
             print("Restoring model from %s\n" % src)
             self.model = load_model(src, custom_objects={"iou": self.iou})
+
+        if not tune_level is None:
+            print("Freezing encoder\n")
+            self.__freeze(tune_level=tune_level)
+
+        self.model.compile(
+            loss=self.loss, optimizer=self.optimizer, metrics=["acc", self.iou]
+        )
+
+    def __freeze(self, tune_level=0):
+        # 0=all layers frozen
+        # 5=all layers unfrozen
+        layer_names = []
+        for i in range(1, 6 - tune_level):
+            layer_names.append("block%d" % i)
+
+        for layer in self.model.layers:
+            if layer.name.startswith("block"):
+                print("unfreezing %s" % layer.name)
+                layer.trainable = True
+            for name in layer_names:
+                if layer.name.startswith(name):
+                    print("freezing %s" % layer.name)
+                    layer.trainable = False
+
+    def fine_tune(
+        self,
+        tune_level=1,
+        optimizer=None,
+        lr=1e-4,
+        epochs=100,
+        test_size=0.1,
+        shuffle=True,
+    ):
+        # Freezing all layers up to a specific one
+        if self.X is None:
+            print("Cannot fine-tune. Must train the model first\n")
+            return
+        if self.train_encoder:
+            print("Whole encoder already trained. No fine-tuning possible\n")
+            return
+
+        self.epochs = epochs
+        self.__freeze(tune_level=tune_level)
+        if optimizer is None:
+            self.optimizer = optimizers.SGD(lr=lr, momentum=0.9, nesterov=True)
+        else:
+            self.optimizer = optimizer
+
+        self.model.compile(
+            loss=self.loss, optimizer=self.optimizer, metrics=["acc", self.iou]
+        )
+        self.model.summary()
+        print("Model recompiled with lr=%f!\n" % lr)
+        print("Restarting training...\n")
+        self.tune_count += 1
+        self.train(self.X, self.Y, test_size=test_size, shuffle=shuffle, tuning=True)
 
     def init_run(self):
         if not os.path.exists(self.runs_dir):
@@ -105,19 +165,19 @@ class FCN8:
         )
 
     def build(self):
-        self.vgg16_model, self.layers = self.vgg16()
+        self.vgg16_enc()
         self.model = self.fcn(
             2, self.layers, self.vgg16_model.input, dropout=self.dropout
         )
 
-        self.model.compile(
-            loss=self.loss, optimizer=self.optimizer, metrics=["acc", self.iou]
-        )
+    def train(self, X, Y, test_size=0.1, shuffle=True, tuning=False, seed=1234):
+        self.X = X
+        self.Y = Y
+        if not tuning:  # check if fine tuning
+            self.log_model()
 
-    def train(self, X, Y, test_size=0.1, shuffle=True):
-        self.log_model()
         X_train, X_valid, Y_train, Y_valid = train_test_split(
-            X, Y, test_size=test_size, shuffle=shuffle
+            self.X, self.Y, test_size=test_size, shuffle=shuffle, random_state=seed
         )
         trainGenerator = DataGen(
             X_train, Y_train, batch_size=self.batch_size, train=True, shuffle=True
@@ -128,7 +188,7 @@ class FCN8:
 
         reduce_lr_on_plateau_sgd = ReduceLROnPlateau(
             monitor="val_iou",
-            factor=0.5,
+            factor=0.2,
             patience=5,
             verbose=1,
             mode="max",
@@ -144,7 +204,7 @@ class FCN8:
             verbose=1,
             mode="max",
             baseline=self.baseline,
-            restore_best_weights=False,
+            restore_best_weights=True,
         )
 
         tensorboard = TensorBoard(
@@ -194,9 +254,9 @@ class FCN8:
         #     callbacks=model_callbacks_sgd,
         # )
 
-        _ = self.plots(savefig=True)
+        _ = self.plots(savefig=True, tuning=tuning)
 
-    def plots(self, savefig=False):
+    def plots(self, savefig=False, tuning=False):
         print("Saving training plots")
         loss = self.history.history["loss"]
         val_loss = self.history.history["val_loss"]
@@ -240,13 +300,18 @@ class FCN8:
 
         # plt.show()
         if savefig:
-            fn = os.path.join(self.model_dir, "plots.png")
+            if tuning:
+                fn = os.path.join(
+                    self.model_dir, "plots_tuning_%d.png" % self.tune_count
+                )
+            else:
+                fn = os.path.join(self.model_dir, "plots.png")
             fig.savefig(fn)
 
         return fig
 
-    def vgg16(self, include_top=True):
-        vgg16_model = vgg16.VGG16(
+    def vgg16_enc(self, include_top=False):
+        self.vgg16_model = vgg16.VGG16(
             include_top=include_top,
             weights="imagenet",
             input_tensor=None,
@@ -254,32 +319,36 @@ class FCN8:
             pooling=None,
             classes=1000,
         )
-        layer1 = vgg16_model.get_layer("block1_pool").output
-        layer2 = vgg16_model.get_layer("block2_pool").output
-        layer3 = vgg16_model.get_layer("block3_pool").output
-        layer4 = vgg16_model.get_layer("block4_pool").output
-        layer5 = vgg16_model.get_layer("block5_pool").output
-        layers = [layer1, layer2, layer3, layer4, layer5]
 
-        return vgg16_model, layers
+        layer1 = self.vgg16_model.get_layer("block1_pool").output
+        layer2 = self.vgg16_model.get_layer("block2_pool").output
+        layer3 = self.vgg16_model.get_layer("block3_pool").output
+        layer4 = self.vgg16_model.get_layer("block4_pool").output
+        layer5 = self.vgg16_model.get_layer("block5_pool").output
+        self.layers = [layer1, layer2, layer3, layer4, layer5]
 
     def fcn(self, num_class, feature_layers, model_input, dropout=0.5):
+        # n = 4096
+        n = 2048
+
         pool5 = feature_layers[-1]  # pool5
         pool4 = feature_layers[-2]  # pool 4
         pool3 = feature_layers[-3]  # pool 3
 
         # fc6
         fc6 = Conv2D(
-            4096, 7, padding="same", kernel_initializer="glorot_normal", name="fc6"
+            n, 7, padding="same", kernel_initializer="glorot_normal", name="fc6"
         )(pool5)
-        fc6 = PReLU()(fc6)
+        fc6 = BatchNormalization()(fc6)
+        fc6 = ReLU()(fc6)
         fc6 = Dropout(dropout, name="fc6_dropout")(fc6)
 
         # fc7
         fc7 = Conv2D(
-            4096, 1, padding="same", kernel_initializer="glorot_normal", name="fc7"
+            n, 1, padding="same", kernel_initializer="glorot_normal", name="fc7"
         )(fc6)
-        fc7 = PReLU()(fc7)
+        fc7 = BatchNormalization()(fc7)
+        fc7 = ReLU()(fc7)
         fc7 = Dropout(dropout, name="fc7_dropout")(fc7)
 
         # unpool
@@ -289,6 +358,8 @@ class FCN8:
             strides=4,
             use_bias=False,
             kernel_initializer="glorot_normal",
+            # output_padding=(2, 2),  # for 400px
+            name="fc7_4up",
         )(fc7)
 
         # unpool
@@ -299,10 +370,16 @@ class FCN8:
             kernel_initializer="glorot_normal",
             name="pool4_pred",
         )(pool4)
-        pool4_pred = PReLU()(pool4_pred)
+        # pool4_pred = BatchNormalization()(pool4_pred)
+        pool4_pred = ReLU()(pool4_pred)
         pool4_2up = Conv2DTranspose(
-            num_class, kernel_size=2, strides=2, use_bias=False, name="pool4_up"
-        )(pool4)
+            num_class,
+            kernel_size=2,
+            strides=2,
+            use_bias=False,
+            name="pool4_up",
+            kernel_initializer="glorot_normal",
+        )(pool4_pred)
 
         # pool3 prediction
         pool3_pred = Conv2D(
@@ -312,12 +389,18 @@ class FCN8:
             kernel_initializer="glorot_normal",
             name="pool3_pred",
         )(pool3)
-        pool3_pred = PReLU()(pool3_pred)
+        # pool3_pred = BatchNormalization()(pool3_pred)
+        pool3_pred = ReLU()(pool3_pred)
 
         # Unpool
         out = Add(name="fuse")([pool4_2up, pool3_pred, fc7_4up])
         out = Conv2DTranspose(
-            num_class, kernel_size=8, strides=8, use_bias=False, name="upsample"
+            num_class,
+            kernel_size=8,
+            strides=8,
+            use_bias=False,
+            name="upsample",
+            kernel_initializer="glorot_normal",
         )(out)
         out = Softmax()(out)
 
