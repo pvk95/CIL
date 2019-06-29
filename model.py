@@ -1,6 +1,13 @@
 from tensorflow._api.v1.keras.models import Model
 from tensorflow._api.v1.keras.models import load_model
-from tensorflow._api.v1.keras.layers import Dropout, Activation, PReLU, Softmax, ReLU
+from tensorflow._api.v1.keras.layers import (
+    Dropout,
+    Activation,
+    PReLU,
+    Softmax,
+    ReLU,
+    LeakyReLU,
+)
 from tensorflow._api.v1.keras.layers import Conv2D, Conv2DTranspose, BatchNormalization
 from tensorflow._api.v1.keras.layers import Add
 from tensorflow._api.v1.keras.applications import vgg16
@@ -188,7 +195,7 @@ class FCN8:
 
         reduce_lr_on_plateau_sgd = ReduceLROnPlateau(
             monitor="val_iou",
-            factor=0.2,
+            factor=0.6,
             patience=5,
             verbose=1,
             mode="max",
@@ -315,7 +322,7 @@ class FCN8:
             include_top=include_top,
             weights="imagenet",
             input_tensor=None,
-            input_shape=None,
+            input_shape=(400, 400, 3),
             pooling=None,
             classes=1000,
         )
@@ -329,7 +336,7 @@ class FCN8:
 
     def fcn(self, num_class, feature_layers, model_input, dropout=0.5):
         # n = 4096
-        n = 2048
+        n = 1024
 
         pool5 = feature_layers[-1]  # pool5
         pool4 = feature_layers[-2]  # pool 4
@@ -340,7 +347,7 @@ class FCN8:
             n, 7, padding="same", kernel_initializer="glorot_normal", name="fc6"
         )(pool5)
         fc6 = BatchNormalization()(fc6)
-        fc6 = ReLU()(fc6)
+        fc6 = LeakyReLU()(fc6)
         fc6 = Dropout(dropout, name="fc6_dropout")(fc6)
 
         # fc7
@@ -348,7 +355,7 @@ class FCN8:
             n, 1, padding="same", kernel_initializer="glorot_normal", name="fc7"
         )(fc6)
         fc7 = BatchNormalization()(fc7)
-        fc7 = ReLU()(fc7)
+        fc7 = LeakyReLU()(fc7)
         fc7 = Dropout(dropout, name="fc7_dropout")(fc7)
 
         # unpool
@@ -358,7 +365,7 @@ class FCN8:
             strides=4,
             use_bias=False,
             kernel_initializer="glorot_normal",
-            # output_padding=(2, 2),  # for 400px
+            output_padding=(2, 2),  # for 400px
             name="fc7_4up",
         )(fc7)
 
@@ -370,8 +377,8 @@ class FCN8:
             kernel_initializer="glorot_normal",
             name="pool4_pred",
         )(pool4)
-        # pool4_pred = BatchNormalization()(pool4_pred)
-        pool4_pred = ReLU()(pool4_pred)
+        pool4_pred = BatchNormalization()(pool4_pred)
+        pool4_pred = LeakyReLU()(pool4_pred)
         pool4_2up = Conv2DTranspose(
             num_class,
             kernel_size=2,
@@ -389,8 +396,8 @@ class FCN8:
             kernel_initializer="glorot_normal",
             name="pool3_pred",
         )(pool3)
-        # pool3_pred = BatchNormalization()(pool3_pred)
-        pool3_pred = ReLU()(pool3_pred)
+        pool3_pred = BatchNormalization()(pool3_pred)
+        pool3_pred = LeakyReLU()(pool3_pred)
 
         # Unpool
         out = Add(name="fuse")([pool4_2up, pool3_pred, fc7_4up])

@@ -19,7 +19,8 @@ import gc
 # learning rate: low
 from tensorflow._api.v1.keras import optimizers
 
-X, Y, files = load_data(resize=True, dim=224)
+X, Y, files = load_data(resize=False, dim=224)
+print("dim:", X.shape[1], X.shape[2])
 
 # step 1
 opt = optimizers.Adam(lr=0.0001)
