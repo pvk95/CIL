@@ -7,9 +7,12 @@ import re
 import sys
 import glob
 
-foreground_threshold = 0.25 # percentage of pixels > 1 required to assign a foreground label to a patch
+# percentage of pixels > 1 required to assign a foreground label to a patch
+foreground_threshold = 0.25
 
 # assign a label to a patch
+
+
 def patch_to_label(patch):
     df = np.mean(patch)
     if df > foreground_threshold:
@@ -17,11 +20,12 @@ def patch_to_label(patch):
     else:
         return 0
 
+
 def mask_to_submission_strings(image_filename):
     """Reads a single image and outputs the strings that should go into the submission file"""
     img_number = int(re.search(r"\d+", image_filename).group(0))
     im = mpimg.imread(image_filename)
-    im = (im[:,:,0]).astype(np.int)
+    im = (im[:, :, 0]).astype(np.int)
     patch_size = 16
     for j in range(0, im.shape[1], patch_size):
         for i in range(0, im.shape[0], patch_size):
@@ -35,7 +39,8 @@ def masks_to_submission(submission_filename, *image_filenames):
     with open(submission_filename, 'w') as f:
         f.write('Id,Prediction\n')
         for fn in image_filenames[0:]:
-            f.writelines('{}\n'.format(s) for s in mask_to_submission_strings(fn))
+            f.writelines('{}\n'.format(s)
+                         for s in mask_to_submission_strings(fn))
 
 
 if __name__ == '__main__':

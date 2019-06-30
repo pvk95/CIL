@@ -11,3 +11,6 @@ Combined/
 Cleaned/
 *.pyc
 *.h5
+plots/
+
+runs/
