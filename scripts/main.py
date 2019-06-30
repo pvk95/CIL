@@ -161,6 +161,8 @@ if __name__ == '__main__':
     elif(arch == 'baseline'):
         model = models.BaseLine(save_folder, input_shape=input_shape, deepness=4,
                                 epochs=args.epochs, batch_size=batch_sz)
+    elif(arch == 'FCN8'):
+        model = models.FCN8(batch_size=batch_sz, dropout=0.5, epochs=100)
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)

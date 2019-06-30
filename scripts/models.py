@@ -18,10 +18,16 @@ from tensorflow.keras.layers import (
     Reshape,
     Dense,
     SpatialDropout2D,
+    LeakyReLU,
+    Add,
+    Softmax
 )
+from tensorflow.keras.applications import vgg16
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.backend import set_session
 from tensorflow.keras.models import Model, load_model
+from tensorflow.keras import backend as K
+from tensorflow.keras import optimizers
 
 
 class getModel(object):
@@ -633,8 +639,213 @@ class CombinedModel(getModel):
 
 
 class FCN8(getModel):
-    def __init__(self, save_folder="./", dropout=0.5, batch_size=1):
-        pass
+    def __init__(
+        self,
+        name="FCN8",
+        dropout=0.5,
+        batch_size=1,
+        epochs=100,
+        optimizer=None,
+        loss="sparse_categorical_crossentropy",
+        patience=11,
+        restore=None,
+        baseline=None,
+        use_multiprocessing=False,
+        workers=4,
+        tune_level=None,
+        save_folder="./",
+        lr=0.001,
+        input_shape=(400, 400, 3),
+        verbose=1,
+        model_name="FCN8.h5",
+    ):
+        self.name = name
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.loss = loss
+        self.runs_dir = "runs"
+        self.pred_dir = "predictions"
+        self.restore = restore
+        self.patience = patience
+        self.baseline = baseline
+        self.dropout = dropout
+        self.multiprocess = use_multiprocessing
+        self.workers = workers
+        self.dropout = dropout
+        self.X = None
+        self.Y = None
+        self.tune_count = 0
+        # self.init_run()
+        getModel.__init__(self, save_folder, epochs, verbose, batch_size, model_name)
+        self.model = self.create_model()
+
+    def create_model(self):
+        num_class = 2
+        self.vgg16_model = vgg16.VGG16(
+            include_top=False,
+            weights="imagenet",
+            input_tensor=None,
+            input_shape=(400, 400, 3),
+            pooling=None,
+            classes=1000,
+        )
+
+        model_input = self.vgg16_model.input
+
+        layer1 = self.vgg16_model.get_layer("block1_pool").output
+        layer2 = self.vgg16_model.get_layer("block2_pool").output
+        layer3 = self.vgg16_model.get_layer("block3_pool").output
+        layer4 = self.vgg16_model.get_layer("block4_pool").output
+        layer5 = self.vgg16_model.get_layer("block5_pool").output
+        self.layers = [layer1, layer2, layer3, layer4, layer5]
+
+        n = 512
+
+        pool5 = self.layers[-1]  # pool5
+        pool4 = self.layers[-2]  # pool 4
+        pool3 = self.layers[-3]  # pool 3
+
+        # fc6
+        fc6 = Conv2D(
+            n, 7, padding="same", kernel_initializer="glorot_normal", name="fc6"
+        )(pool5)
+        fc6 = BatchNormalization()(fc6)
+        fc6 = LeakyReLU()(fc6)
+        fc6 = Dropout(self.dropout, name="fc6_dropout")(fc6)
+
+        # fc7
+        fc7 = Conv2D(
+            n, 1, padding="same", kernel_initializer="glorot_normal", name="fc7"
+        )(fc6)
+        fc7 = BatchNormalization()(fc7)
+        fc7 = LeakyReLU()(fc7)
+        fc7 = Dropout(self.dropout, name="fc7_dropout")(fc7)
+
+        # unpool
+        fc7_4up = Conv2DTranspose(
+            num_class,
+            kernel_size=4,
+            strides=4,
+            use_bias=False,
+            kernel_initializer="glorot_normal",
+            output_padding=(2, 2),  # for 400px
+            name="fc7_4up",
+        )(fc7)
+
+        # unpool
+        pool4_pred = Conv2D(
+            num_class,
+            1,
+            padding="same",
+            kernel_initializer="glorot_normal",
+            name="pool4_pred",
+        )(pool4)
+        pool4_pred = BatchNormalization()(pool4_pred)
+        pool4_pred = LeakyReLU()(pool4_pred)
+        pool4_2up = Conv2DTranspose(
+            num_class,
+            kernel_size=2,
+            strides=2,
+            use_bias=False,
+            name="pool4_up",
+            kernel_initializer="glorot_normal",
+        )(pool4_pred)
+
+        # pool3 prediction
+        pool3_pred = Conv2D(
+            num_class,
+            1,
+            padding="same",
+            kernel_initializer="glorot_normal",
+            name="pool3_pred",
+        )(pool3)
+        pool3_pred = BatchNormalization()(pool3_pred)
+        pool3_pred = LeakyReLU()(pool3_pred)
+
+        # Unpool
+        out = Add(name="fuse")([pool4_2up, pool3_pred, fc7_4up])
+        out = Conv2DTranspose(
+            num_class,
+            kernel_size=8,
+            strides=8,
+            use_bias=False,
+            name="upsample",
+            kernel_initializer="glorot_normal",
+        )(out)
+        out = Softmax()(out)
+
+        model = Model(model_input, out)
+        model.compile(
+            loss=self.loss, 
+            optimizer=optimizers.SGD(
+                decay=5**(-4), 
+                momentum=0.9, 
+                nesterov=True
+            ), 
+            metrics=['acc']
+        )
+
+        return model
+    
+    def iou(self, true, pred):
+        def castF(x):
+            return K.cast(x, K.floatx())
+
+        def castB(x):
+            return K.cast(x, bool)
+
+        def iou_loss_core(
+            true, pred
+        ):  # this can be used as a loss if you make it negative
+            intersection = true * pred
+            notTrue = 1 - true
+            union = true + (notTrue * pred)
+
+            return (K.sum(intersection, axis=-1) + K.epsilon()) / (
+                K.sum(union, axis=-1) + K.epsilon()
+            )
+
+        def metric(true, pred):  # any shape can go - can't be a loss function
+
+            tresholds = [0.5 + (i * 0.05) for i in range(10)]
+
+            # flattened images (batch, pixels)
+            true = K.batch_flatten(true)
+            pred = K.batch_flatten(pred)
+            pred = castF(K.greater(pred, 0.5))
+
+            # total white pixels - (batch,)
+            trueSum = K.sum(true, axis=-1)
+            predSum = K.sum(pred, axis=-1)
+
+            # has mask or not per image - (batch,)
+            true1 = castF(K.greater(trueSum, 1))
+            pred1 = castF(K.greater(predSum, 1))
+
+            # to get images that have mask in both true and pred
+            truePositiveMask = castB(true1 * pred1)
+
+            # separating only the possible true positives to check iou
+            testTrue = tf.boolean_mask(true, truePositiveMask)
+            testPred = tf.boolean_mask(pred, truePositiveMask)
+
+            # getting iou and threshold comparisons
+            iou = iou_loss_core(testTrue, testPred)
+            truePositives = [castF(K.greater(iou, tres)) for tres in tresholds]
+
+            # mean of thressholds for true positives and total sum
+            truePositives = K.mean(K.stack(truePositives, axis=-1), axis=-1)
+            truePositives = K.sum(truePositives)
+
+            # to get images that don't have mask in both true and pred
+            trueNegatives = (1 - true1) * (
+                1 - pred1
+            )  # = 1 -true1 - pred1 + true1*pred1
+            trueNegatives = K.sum(trueNegatives)
+
+            return (truePositives + trueNegatives) / castF(K.shape(true)[0])
+
+        return metric(true, pred)
 
 
 class BaseLine(getModel):

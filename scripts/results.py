@@ -107,6 +107,8 @@ if __name__ =='__main__':
         model = keras.models.load_model(save_folder + 'checkpoint/CombinedModel.h5')
     elif arch == 'baseline':
         model = keras.models.load_model(save_folder + 'checkpoint/Baseline.h5')
+    elif arch == 'FCN8'
+        model = keras.models.load_model(save_folder + 'checkpoint/FCN8.h5')
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)
