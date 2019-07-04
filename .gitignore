@@ -12,5 +12,6 @@ Cleaned/
 *.pyc
 *.h5
 plots/
-
+FCN8/
+Inverted
 runs/

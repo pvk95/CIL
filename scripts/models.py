@@ -782,7 +782,7 @@ class FCN8(getModel):
                 momentum=0.9, 
                 nesterov=True
             ), 
-            metrics=['acc']
+            metrics=['acc', self.iou]
         )
 
         return model
@@ -879,7 +879,7 @@ class BaseLine(getModel):
         # Convolve downwards
         inp = self.input
         for x in range(self.deepness):
-            filters = 2 ** (6 + 3)
+            filters = 2 ** (6 + x)
             conv1 = keras.layers.Conv2D(
                 filters,
                 3,
@@ -913,12 +913,12 @@ class BaseLine(getModel):
             activation="relu",
             padding="same",
             name=f"conv2d_2_lowest_baseline_unet",
-        )(conv2)
+        )(conv1)
 
         # Convolve upwards
         inp = conv2
         for x in range(self.deepness - 1, -1, -1):
-            filters = 2 ** (6 + 3)
+            filters = 2 ** (6 + x)
             up_conv = keras.layers.Conv2DTranspose(
                 filters, 2, 2, name=f"up_conv2t_{x}_baseline_unet"
             )(inp)
@@ -946,6 +946,7 @@ class BaseLine(getModel):
             loss="binary_crossentropy",
             metrics=["accuracy"],
         )
+        model.summary()
         return model
 
 
