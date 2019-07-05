@@ -33,10 +33,6 @@ import numpy as np
 from sklearn.utils import shuffle
 from imgaug import augmenters as iaa
 
-# Resource: https://fairyonice.github.io/Learn-about-Fully-Convolutional-Networks-for-semantic-segmentation.html
-# http://deeplearning.net/tutorial/fcn_2D_segm.html
-# https://www.kaggle.com/c/tgs-salt-identification-challenge/discussion/63044
-
 
 class FCN8:
     def __init__(
@@ -96,8 +92,8 @@ class FCN8:
         )
 
     def __freeze(self, tune_level=0):
-        # 0=all layers frozen
-        # 5=all layers unfrozen
+        # 0=all vgg16 layers frozen
+        # 5=all vgg16 layers unfrozen
         layer_names = []
         for i in range(1, 6 - tune_level):
             layer_names.append("block%d" % i)
@@ -124,16 +120,10 @@ class FCN8:
         if self.X is None:
             print("Cannot fine-tune. Must train the model first\n")
             return
-        if self.train_encoder:
-            print("Whole encoder already trained. No fine-tuning possible\n")
-            return
 
         self.epochs = epochs
         self.__freeze(tune_level=tune_level)
-        if optimizer is None:
-            self.optimizer = optimizers.SGD(lr=lr, momentum=0.9, nesterov=True)
-        else:
-            self.optimizer = optimizer
+        self.optimizer = optimizer
 
         self.model.compile(
             loss=self.loss, optimizer=self.optimizer, metrics=["acc", self.iou]
@@ -145,6 +135,7 @@ class FCN8:
         self.train(self.X, self.Y, test_size=test_size, shuffle=shuffle, tuning=True)
 
     def init_run(self):
+        # setup directory for current run and dump the configuration of the model to folder
         if not os.path.exists(self.runs_dir):
             os.mkdir(self.runs_dir)
         time = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -161,6 +152,7 @@ class FCN8:
         )
 
     def log_model(self):
+        # log model graph
         print("Log model data")
         print("Log model summary")
         with open(os.path.join(self.model_dir, "summary.txt"), "w") as fh:
@@ -172,12 +164,14 @@ class FCN8:
         )
 
     def build(self):
+        # build the fcn8 graph
         self.vgg16_enc()
         self.model = self.fcn(
             2, self.layers, self.vgg16_model.input, dropout=self.dropout
         )
 
     def train(self, X, Y, test_size=0.1, shuffle=True, tuning=False, seed=1234):
+        # train the model
         self.X = X
         self.Y = Y
         if not tuning:  # check if fine tuning
@@ -252,18 +246,10 @@ class FCN8:
             callbacks=model_callbacks_sgd,
         )
 
-        # self.history = self.model.fit(
-        #     X_train,
-        #     Y_train,
-        #     validation_data=(X_valid, Y_valid),
-        #     batch_size=1,
-        #     epochs=self.epochs,
-        #     callbacks=model_callbacks_sgd,
-        # )
-
         _ = self.plots(savefig=True, tuning=tuning)
 
     def plots(self, savefig=False, tuning=False):
+        # Save plots of training/validation loss and metrics
         print("Saving training plots")
         loss = self.history.history["loss"]
         val_loss = self.history.history["val_loss"]
@@ -318,6 +304,7 @@ class FCN8:
         return fig
 
     def vgg16_enc(self, include_top=False):
+        # build the vGG16 graph and extract the layers needed for fcn8
         self.vgg16_model = vgg16.VGG16(
             include_top=include_top,
             weights="imagenet",
@@ -335,8 +322,10 @@ class FCN8:
         self.layers = [layer1, layer2, layer3, layer4, layer5]
 
     def fcn(self, num_class, feature_layers, model_input, dropout=0.5):
+        # build the actual fcn8 graph
+
         # n = 4096
-        n = 512
+        n = 1024
 
         pool5 = feature_layers[-1]  # pool5
         pool4 = feature_layers[-2]  # pool 4
@@ -416,6 +405,8 @@ class FCN8:
         return model
 
     def iou(self, true, pred):
+        # The metric used for early stopping and learning rate decrease.
+        # source: https://www.kaggle.com/c/tgs-salt-identification-challenge/discussion/63044
         def castF(x):
             return K.cast(x, K.floatx())
 
@@ -433,7 +424,8 @@ class FCN8:
                 K.sum(union, axis=-1) + K.epsilon()
             )
 
-        def metric(true, pred):  # any shape can go - can't be a loss function
+        def metric(true, pred):
+            # metric function for keras.
 
             tresholds = [0.5 + (i * 0.05) for i in range(10)]
 
@@ -477,6 +469,8 @@ class FCN8:
 
 
 class DataGen(Sequence):
+    # Generator for the training and validation images
+    # Image augmentation only applied to training images
     def __init__(
         self, X, Y, batch_size=1, shape=(224, 224, 3), train=True, shuffle=True
     ):
@@ -504,6 +498,7 @@ class DataGen(Sequence):
             self.X, self.Y = shuffle(self.X, self.Y)
 
     def __augment(self, X, Y):
+        # Augments the current batch of training images and their ground truth
         affine = iaa.Affine(rotate=(-180, 180), scale=(0.9, 1.1), mode=["reflect"])
 
         seq_both = iaa.Sequential(
