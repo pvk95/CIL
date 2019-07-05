@@ -2,6 +2,18 @@
 
 ## Running the code
 
+### FCN8 
+- Make sure the training and test data are within the folder called FCN8.
+- Test data should be in fcn8/data/test_images
+- Training data should be in fcn8/data/training/
+- run train.py to train the model
+
+### Baseline CNN
+- Make sure the training and test data are within the folder called baseline_cnn.
+- Test data should be in baseline_cnn/data/test_images
+- Training data should be in fcn8/data/training/
+- run train.py to train the model
+
 ### Training & Prediction
 
 To run training and prediction one has to run the following command:  `./scripts/run_model.sh`
