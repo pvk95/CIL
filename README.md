@@ -14,6 +14,8 @@
 - Training data should be in baseline_cnn/data/training/
 - run train.py to train the model and predict on the test images
 
+For all the other models/architectures, see below.
+
 ### Training & Prediction
 
 To run training and prediction one has to run the following command:  `./scripts/run_model.sh`
