@@ -26,6 +26,28 @@ def getSegImgs(model, X_test, save_folder):
     y_pred = utils.resize_to_test(y_pred)
     utils.getPredImgs(y_pred, file_names, save_folder)
 
+def produceSegmentedImages(model, X_test, save_folder, mode=0):
+    if mode == 0:
+        # Resize image
+        produce_patches = utils.resize_to_tr
+        reconstruct_from_patches = utils.resize_to_test
+    elif mode == 1:
+        # Use patces to recreate image
+        produce_patches = utils.produce_patch
+        reconstruct_from_patches = utils.reconstruct_patches
+    elif mode == 2:
+        # pad image to get original
+        produce_patches = utils.use_padding
+        reconstruct_from_patches = utils.from_padding
+
+    X_patches = produce_patches(X_test)
+    X_patches = np.array(X_patches)
+    y_patches = model.predict(X_patches)
+    y_pred = reconstruct_from_patches(y_patches)
+    y_pred = np.array(y_pred)
+    utils.getPredImgs(y_pred, file_names, save_folder)
+    
+
 
 def getValid(model, X_valid):
     y_valid = model.predict(X_valid)
@@ -50,6 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('-sz_tr', default=150, help='No. of samples data aug', type=int)
     parser.add_argument('-arch', default='unet', help='Which architecture? ', type=str)
     parser.add_argument('-sub_sample',default=0,help='Whether to sub sample',type=int)
+    parser.add_argument('-rec_mode', default=0, help='What type of image reconstrucitons is used', type=int)
     # -arch == unet or -arch ==segnet
 
     # mode = 1 train,valid and test
@@ -59,8 +82,8 @@ if __name__ == '__main__':
 
     np.random.seed(0)
 
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+    #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    #os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
     # im_sz = 32 # Square images
     # n_samples = 100
@@ -78,6 +101,7 @@ if __name__ == '__main__':
     sz_tr = args.sz_tr
     arch = args.arch
     sub_sample = not not args.sub_sample
+    rec_mode = args.rec_mode
 
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -132,6 +156,13 @@ if __name__ == '__main__':
                             epochs=args.epochs,batch_size=batch_sz)
     elif(arch == 'resnet'):
         model = models.ResUNet(save_folder=save_folder, epochs = args.epochs)
+    elif(arch == 'combined'):
+        model = models.CombinedModel(save_folder=save_folder, epochs=args.epochs, batch_size=batch_sz)
+    elif(arch == 'baseline'):
+        model = models.BaseLine(save_folder, input_shape=input_shape, deepness=4,
+                                epochs=args.epochs, batch_size=batch_sz)
+    elif(arch == 'FCN8'):
+        model = models.FCN8(batch_size=batch_sz, dropout=0.5, epochs=100)
     else:
         print("Unknown architecture! Exiting ...")
         sys.exit(1)
@@ -139,7 +170,7 @@ if __name__ == '__main__':
     if (mode == 1):
         model.train(X_train,y_train,X_valid,y_valid)
         getValid(model,X_valid)
-        getSegImgs(model,X_test,save_folder)
+        produceSegmentedImages(model, X_test, save_folder, rec_mode)
     elif (mode == 2):
         model.train(X_train, y_train, X_valid, y_valid)
         getValid(model,X_valid)

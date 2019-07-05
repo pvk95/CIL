@@ -7,9 +7,15 @@ training_data.h5
 ResUNet/
 UNet/
 SegNet/
+Combined/
+Cleaned/
+*.pyc
+*.h5
 plots/
-
+FCN8/
+Inverted
 runs/
+Baseline/
 
 best/
 

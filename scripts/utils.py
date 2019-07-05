@@ -165,7 +165,7 @@ def getPredImgs(y_pred,file_names,save_folder):
         os.makedirs(save_folder + 'pred_imgs/')
 
     for i in range(len(file_names)):
-        fileName = save_folder + 'pred_imgs/test_img_{}'.format(file_names[i])
+        fileName = save_folder + 'pred_imgs/test_img_{}.png'.format(file_names[i])
         plt.imsave(fileName,y_pred[i,:,:],cmap = cm.gray)
 
 def resize_to_tr(X):
@@ -193,6 +193,60 @@ def resize_to_test(X):
 
     resize_imgs = np.stack(resize_imgs, axis=0)
     return resize_imgs
+
+def produce_patch(X_test):
+    patches = []
+    for image in X_test:
+        for x in range(0, 209, 52):
+            for y in range(0, 209, 52):
+                patch = image[x:x+400, y:y+400]
+                patches.append(patch)
+    return patches
+
+def reconstruct_patches(X_patches):
+    chunks = np.split(X_patches, X_patches.shape[0]//25)
+    images = []
+    for chunk in chunks:
+        aggregate_image = np.empty((608,608,25))
+        aggregate_image[:,:,:] = np.nan
+        counter = 0
+        for x in range(0, 209, 52):
+            for y in range(0, 209, 52):
+                aggregate_image[x: x+400, y:y+400,counter] = chunk[counter,:,:,0]
+                counter +=1
+        image = np.nanmedian(aggregate_image, axis=-1) 
+        image = (image >=0.5).astype(np.int)
+        images.append(image)
+    return images
+
+def use_padding(X_test):
+    patches = []
+    for image in X_test:
+        image_pad = np.pad(image, (96, 96), 'constant', constant_values=(0, 0))
+        for x in range(2):
+            for y in range(2):
+                patch = image_pad[x*400:(x+1)*400, y*400:(y+1)*400]
+                patches.append(patch)
+    return patches
+
+
+def from_padding(X_patches):
+    chunks = np.split(X_patches, X_patches.shape[0]//4)
+    images = []
+    for chunk in chunks:
+        aggregate_image = np.empty((800,800))
+        aggregate_image[:,:] = np.nan
+        counter = 0
+        for x in range(2):
+            for y in range(2):
+                aggregate_image[x*400: (x+1)*400, y*400:(y+1)*400] = chunk[counter,:,:0]
+                counter += 1
+        image = aggregate_image[96:496, 96:496]
+        image = (image >= 0.5).astype(np.int)
+        images.append(image)
+    return images
+
+
 
 
 if __name__ == '__main__':
