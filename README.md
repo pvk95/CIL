@@ -6,13 +6,13 @@
 - Make sure the training and test data are within the folder called FCN8.
 - Test data should be in fcn8/data/test_images
 - Training data should be in fcn8/data/training/
-- run train.py to train the model
+- run train.py to train the model and predict on the test images
 
 ### Baseline CNN
 - Make sure the training and test data are within the folder called baseline_cnn.
 - Test data should be in baseline_cnn/data/test_images
 - Training data should be in fcn8/data/training/
-- run train.py to train the model
+- run train.py to train the model and predict on the test images
 
 ### Training & Prediction
 
