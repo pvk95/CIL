@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 
 def test_aug(X, Y, seq):
+    # helper used to test image augmentations and plot results
     imx = seq(images=X)
     imy = seq(images=Y)
 
@@ -26,6 +27,7 @@ def test_aug(X, Y, seq):
 
 
 def one_hot_gt(X):
+    # One-hot encoding of ground truth images
     dim = X.shape[0]
     label = np.zeros((dim, dim, 2))
     for c in range(2):
@@ -34,6 +36,7 @@ def one_hot_gt(X):
 
 
 def load_data(one_hot=True, grey=False, as_float=True, resize=True, dim=224):
+    # Loads all training images and ground truth to memory.
     print("Loading data...")
     TRAIN_PATH = "data/training/"
     TEST_PATH = "data/test_images/"
@@ -74,6 +77,7 @@ def load_data(one_hot=True, grey=False, as_float=True, resize=True, dim=224):
 
 
 def load_test(as_float=True, grey=False, resize=True, dim=224):
+    # loads all test images to memory
     TEST_PATH = "data/test_images/"
 
     file_names = [f for _, _, f in os.walk(TEST_PATH)][0]

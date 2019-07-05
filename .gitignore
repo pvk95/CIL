@@ -10,3 +10,11 @@ SegNet/
 plots/
 
 runs/
+
+best/
+
+out/
+
+predsFourpx/
+
+predsSixpx/
